@@ -48,6 +48,10 @@ pub fn handle_input(
             } else if game.get_word_string(game.player.position_y).len() < MAX_WORD_LENGTH {
                 let _ = add_incorrect_char(game, theme, stdout, c, x, y)?;
                 game.player.position_x += 1;
+                stats.letter_count += 1;
+                stats.incorrect_letters += 1;
+                stats.extra_chars += 1;
+                stats.add_error();
             }
 
             stdout.flush().context("Failed to flush stdout")?;
@@ -378,26 +382,24 @@ fn handle_backspace(
 }
 
 fn update_game_state(game: &mut Game, stats: &mut Stats, c: char) -> Result<()> {
-    if c == game
+    let expected = game
         .get_word_string(game.player.position_y)
         .chars()
         .nth(game.player.position_x as usize)
-        .context("Failed to get character from word")?
-    {
+        .context("Failed to get character from word")?;
+
+    if c == expected {
         stats.letter_count += 1;
     } else {
         stats.incorrect_letters += 1;
         stats.letter_count += 1;
+        stats.add_error();
+        if expected == ' ' {
+            stats.extra_chars += 1;
+        }
     }
 
-    if game
-        .get_word_string(game.player.position_y)
-        .chars()
-        .nth(game.player.position_x as usize)
-        .context("Failed to get character from word")?
-        == ' '
-        && c != ' '
-    {
+    if expected == ' ' && c != ' ' {
         game.selected_word_index += 1;
     }
     game.player.position_x += 1;

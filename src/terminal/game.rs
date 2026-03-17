@@ -78,6 +78,8 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
 
     mode.transform(&mut game.list);
 
+    let duration = mode.duration;
+    let lang_name = language.lang.clone();
     let mut stats = Stats::new();
 
     setup_terminal(&stdout).context("Failed to setup terminal")?;
@@ -196,13 +198,27 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
 
     if !game.quit {
         stdout.execute(cursor::Hide)?;
+
+        // Check personal best before saving
+        let current_wpm = stats.wpm() as u32;
+        let is_pb = if current_wpm > 0 {
+            match Data::get_scores() {
+                Ok(scores) if scores.is_empty() => true,
+                Ok(scores) => scores.iter().all(|s| current_wpm > s.wpm),
+                Err(_) => true,
+            }
+        } else {
+            false
+        };
+
         let score = Score::new(
-            stats.wpm() as u32,
+            current_wpm,
             stats.raw_wpm() as u32,
             stats.accuracy() as f32,
         );
         Data::save_data(score).context("Failed to save data")?;
-        finish_overview::show_stats(&stdout, stats, &theme).context("Failed to show stats")?;
+        finish_overview::show_stats(&stdout, stats, &theme, duration, &lang_name, is_pb)
+            .context("Failed to show stats")?;
     }
 
     reset_terminal(&stdout).context("Failed to reset terminal")?;
