@@ -111,15 +111,11 @@ pub fn show_stats(
         stdout.execute(SetForegroundColor(Color::Yellow))?;
         print!("--");
         stdout.execute(SetForegroundColor(theme.missing))?;
-        print!(" wpm  ");
+        print!(" wpm   ");
         stdout.execute(SetForegroundColor(Color::Rgb { r: 100, g: 100, b: 100 }))?;
         print!("--");
         stdout.execute(SetForegroundColor(theme.missing))?;
-        print!(" raw  ");
-        stdout.execute(SetForegroundColor(Color::Rgb { r: 70, g: 70, b: 70 }))?;
-        print!("..");
-        stdout.execute(SetForegroundColor(theme.missing))?;
-        print!(" avg  ");
+        print!(" raw   ");
         stdout.execute(SetForegroundColor(Color::Red))?;
         print!("*");
         stdout.execute(SetForegroundColor(theme.missing))?;
