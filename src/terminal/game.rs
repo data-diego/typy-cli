@@ -6,7 +6,7 @@ use crossterm::{
     cursor::MoveTo,
     event::{read, Event, KeyEvent},
     style::{ResetColor, SetForegroundColor},
-    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
+    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
 use std::io::stdout;
@@ -41,6 +41,7 @@ impl Player {
 
 pub struct Game {
     pub list: Vec<Vec<String>>,
+    pub original_list: Vec<Vec<String>>,
     pub player: Player,
     pub jump_position: i32,
     pub selected_word_index: i32,
@@ -50,6 +51,7 @@ pub struct Game {
 impl Game {
     fn new(list: Vec<Vec<String>>) -> Self {
         Game {
+            original_list: list.clone(),
             list,
             player: Player::new(),
             jump_position: 0,
@@ -120,8 +122,9 @@ pub fn run(mode: Mode, theme: ThemeColors) -> Result<()> {
             let remaining = *remaining_time
                 .lock()
                 .map_err(|e| anyhow::anyhow!("Failed to lock remaining time: {}", e))?;
+            let timer_x = x + (super::terminal_utils::LINE_LENGTH as u16 / 2) - 1;
             stdout
-                .execute(MoveTo(x, y - 2))
+                .execute(MoveTo(timer_x, y - 2))
                 .context("Failed to move cursor")?;
             stdout
                 .execute(SetForegroundColor(theme.accent))
@@ -182,6 +185,7 @@ fn setup_terminal(mut stdout: &std::io::Stdout) -> Result<()> {
     let cursor_kind = CursorKind::new();
 
     enable_raw_mode()?;
+    stdout.execute(EnterAlternateScreen)?;
     stdout.execute(Clear(ClearType::All))?;
     stdout.execute(cursor_kind.style)?;
 
@@ -192,8 +196,7 @@ fn reset_terminal(mut stdout: &std::io::Stdout) -> Result<()> {
     disable_raw_mode()?;
     stdout.execute(cursor::Show)?;
     stdout.execute(ResetColor)?;
-    stdout.execute(Clear(ClearType::All))?;
-    stdout.execute(MoveTo(0, 0))?;
+    stdout.execute(LeaveAlternateScreen)?;
     stdout.execute(SetCursorStyle::DefaultUserShape)?;
     stdout.flush()?;
 

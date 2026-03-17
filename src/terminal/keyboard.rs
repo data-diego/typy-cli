@@ -27,29 +27,36 @@ pub fn handle_input(
     x: u16,
     y: u16,
 ) -> Result<InputAction> {
-    if let KeyCode::Char(c) = code {
-        if c == ' ' {
-            match handle_space(game, stdout, x, y)? {
-                InputAction::Continue => return Ok(InputAction::Continue),
-                InputAction::Break => return Ok(InputAction::Break),
-                InputAction::None => {}
-            };
-        }
-        // check the typed letter
-        if game.player.position_x
-            < game.get_word_string(game.player.position_y).chars().count() as i32
-        {
-            match handle_chars(game, stats, theme, stdout, c, x, y)? {
-                InputAction::Continue => return Ok(InputAction::Continue),
-                InputAction::Break => return Ok(InputAction::Break),
-                InputAction::None => {}
+    match code {
+        KeyCode::Char(c) => {
+            if c == ' ' {
+                match handle_space(game, stdout, x, y)? {
+                    InputAction::Continue => return Ok(InputAction::Continue),
+                    InputAction::Break => return Ok(InputAction::Break),
+                    InputAction::None => {}
+                };
             }
-        } else if game.get_word_string(game.player.position_y).len() < MAX_WORD_LENGTH {
-            let _ = add_incorrect_char(game, theme, stdout, c, x, y)?;
-            game.player.position_x += 1;
-        }
+            // check the typed letter
+            if game.player.position_x
+                < game.get_word_string(game.player.position_y).chars().count() as i32
+            {
+                match handle_chars(game, stats, theme, stdout, c, x, y)? {
+                    InputAction::Continue => return Ok(InputAction::Continue),
+                    InputAction::Break => return Ok(InputAction::Break),
+                    InputAction::None => {}
+                }
+            } else if game.get_word_string(game.player.position_y).len() < MAX_WORD_LENGTH {
+                let _ = add_incorrect_char(game, theme, stdout, c, x, y)?;
+                game.player.position_x += 1;
+            }
 
-        stdout.flush().context("Failed to flush stdout")?;
+            stdout.flush().context("Failed to flush stdout")?;
+        }
+        KeyCode::Backspace => {
+            handle_backspace(game, theme, stdout, x, y)?;
+            stdout.flush().context("Failed to flush stdout")?;
+        }
+        _ => {}
     }
     Ok(InputAction::None)
 }
@@ -268,6 +275,76 @@ fn add_incorrect_char(
     game.list[game.player.position_y as usize] =
         new_line.split_whitespace().map(String::from).collect();
     Ok(InputAction::None)
+}
+
+fn handle_backspace(
+    game: &mut Game,
+    theme: &ThemeColors,
+    mut stdout: &std::io::Stdout,
+    x: u16,
+    y: u16,
+) -> Result<()> {
+    if game.player.position_x <= 0 {
+        return Ok(());
+    }
+
+    let current_line = game.get_word_string(game.player.position_y);
+
+    // Don't cross word boundary (don't go back past a space)
+    let prev_pos = (game.player.position_x - 1) as usize;
+    if current_line.chars().nth(prev_pos) == Some(' ') {
+        return Ok(());
+    }
+
+    game.player.position_x -= 1;
+    let pos = game.player.position_x as usize;
+    let py = game.player.position_y as usize;
+
+    // Find which word we're in by scanning word boundaries
+    let current_words = &game.list[py];
+    let original_words = &game.original_list[py];
+    let mut word_start = 0usize;
+    let mut word_idx = 0usize;
+    for (i, word) in current_words.iter().enumerate() {
+        let word_end = word_start + word.chars().count();
+        if pos >= word_start && pos < word_end {
+            word_idx = i;
+            break;
+        }
+        word_start = word_end + 1; // +1 for space
+    }
+
+    // Check if this is an extra character (current word longer than original)
+    if word_idx < original_words.len()
+        && current_words[word_idx].chars().count() > original_words[word_idx].chars().count()
+    {
+        let pos_in_word = pos - word_start;
+        if pos_in_word >= original_words[word_idx].chars().count() {
+            // Remove the extra character
+            let mut word_chars: Vec<char> = current_words[word_idx].chars().collect();
+            word_chars.remove(pos_in_word);
+            game.list[py][word_idx] = word_chars.into_iter().collect();
+
+            // Redraw from current position to end of line
+            let new_line = game.get_word_string(game.player.position_y);
+            stdout.execute(MoveTo(x + pos as u16, y + py as u16))?;
+            stdout.execute(SetAttribute(Attribute::Reset))?;
+            stdout.execute(SetForegroundColor(theme.missing))?;
+            let remaining: String = new_line.chars().skip(pos).collect();
+            print!("{} ", remaining); // extra space to clear the removed char
+            return Ok(());
+        }
+    }
+
+    // Normal case: redraw the original character in "missing" color
+    let original_line = game.original_list[py].join(" ");
+    let orig_char = original_line.chars().nth(pos).unwrap_or(' ');
+    stdout.execute(SetAttribute(Attribute::Reset))?;
+    stdout.execute(SetForegroundColor(theme.missing))?;
+    stdout.execute(MoveTo(x + pos as u16, y + py as u16))?;
+    print!("{}", orig_char);
+
+    Ok(())
 }
 
 fn update_game_state(game: &mut Game, stats: &mut Stats, c: char) -> Result<()> {
