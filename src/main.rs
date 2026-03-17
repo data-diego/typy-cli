@@ -64,7 +64,13 @@ fn main() -> Result<()> {
         .context("Failed to parse mode")?
         .add_duration(duration);
 
-    terminal::run(mode, theme, cli.lang)?;
+    let lang = cli.lang.map(|l| match l.as_str() {
+        "s" | "es" | "esp" => "spanish".to_string(),
+        "e" | "en" | "eng" => "english".to_string(),
+        _ => l,
+    });
+
+    terminal::run(mode, theme, lang)?;
 
     Ok(())
 }
