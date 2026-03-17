@@ -289,10 +289,40 @@ fn handle_backspace(
     }
 
     let current_line = game.get_word_string(game.player.position_y);
-
-    // Don't cross word boundary (don't go back past a space)
     let prev_pos = (game.player.position_x - 1) as usize;
+
+    // If previous char is a space, backspace over it into the previous word
     if current_line.chars().nth(prev_pos) == Some(' ') {
+        if game.selected_word_index <= 0 {
+            return Ok(());
+        }
+        // Move back over the space
+        game.player.position_x -= 1;
+        let pos = game.player.position_x as usize;
+        let py = game.player.position_y as usize;
+
+        // Undo the word jump
+        game.selected_word_index -= 1;
+
+        // Recalculate jump_position for the previous word
+        if game.selected_word_index == 0 {
+            game.jump_position = 0;
+        } else {
+            game.jump_position = game.list[py]
+                .iter()
+                .take(game.selected_word_index as usize)
+                .map(|word| word.chars().count() + 1)
+                .sum::<usize>() as i32
+                - 1;
+        }
+
+        // Redraw the space in missing color
+        let original_line = game.original_list[py].join(" ");
+        let orig_char = original_line.chars().nth(pos).unwrap_or(' ');
+        stdout.execute(SetAttribute(Attribute::Reset))?;
+        stdout.execute(SetForegroundColor(theme.missing))?;
+        stdout.execute(MoveTo(x + pos as u16, y + py as u16))?;
+        print!("{}", orig_char);
         return Ok(());
     }
 

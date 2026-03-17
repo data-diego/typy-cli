@@ -96,10 +96,35 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
     let remaining_time = Arc::new(Mutex::new(mode.duration));
     let remaining_time_clone = Arc::clone(&remaining_time);
     let mut remaining_prev: u64 = 0;
+    let timer_started = Arc::new(AtomicBool::new(false));
+    let timer_started_clone = Arc::clone(&timer_started);
+
+    // Display initial timer value before starting
+    {
+        let timer_x = x + (super::terminal_utils::LINE_LENGTH as u16 / 2) - 1;
+        stdout
+            .execute(MoveTo(timer_x, y - 2))
+            .context("Failed to move cursor")?;
+        stdout
+            .execute(SetForegroundColor(theme.accent))
+            .context("Failed to set foreground color")?;
+        print!("{:02}", mode.duration);
+        stdout.flush().context("Failed to flush stdout")?;
+        stdout
+            .execute(MoveTo(x, y))
+            .context("Failed to move cursor")?;
+    }
 
     let (tx, _) = mpsc::channel();
 
     let timer_thread = thread::spawn(move || {
+        // Wait until first keypress signals the timer to start
+        while !timer_started_clone.load(Ordering::Relaxed) {
+            if timer_expired_clone.load(Ordering::Relaxed) {
+                return;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
         if let Err(e) = start_timer(mode.duration, timer_expired_clone, remaining_time_clone) {
             tx.send(e).expect("Failed to send error from timer thread");
         }
@@ -155,6 +180,10 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
                     timer_expired.store(true, Ordering::Relaxed);
                     game.quit = true;
                     break;
+                }
+                // Start the timer on the first real keypress
+                if !timer_started.load(Ordering::Relaxed) {
+                    timer_started.store(true, Ordering::Relaxed);
                 }
                 match handle_input(&mut game, &stdout, code, &mut stats, &theme, x, y)? {
                     InputAction::Continue => continue,

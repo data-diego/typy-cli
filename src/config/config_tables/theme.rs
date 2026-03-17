@@ -48,7 +48,7 @@ impl Default for ThemeColors {
     fn default() -> Self {
         ThemeColors {
             fg: Color::White,
-            missing: Color::Grey,
+            missing: Color::DarkGrey,
             error: Color::Red,
             accent: Color::Yellow,
         }
