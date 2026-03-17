@@ -1,14 +1,14 @@
 <div align="center">
   <pre>
-,--------.,--.   ,--.,------.,--.   ,--.  
-'--.  .--' \  `.'  / |  .--. '\  `.'  /  
-   |  |     '.    /  |  '--' | '.    /   
-   |  |       |  |   |  | --'    |  |    
-   `--'       `--'   `--'        `--'    
+,--------.,--.   ,--.,------.,--.   ,--.
+'--.  .--' \  `.'  / |  .--. '\  `.'  /
+   |  |     '.    /  |  '--' | '.    /
+   |  |       |  |   |  | --'    |  |
+   `--'       `--'   `--'        `--'
   </pre>
 </div>
 
-> [!WARNING]  
+> [!WARNING]
 > When the terminal is too small it can lead to strange behavior.
 
 ## Table of contents
@@ -17,14 +17,21 @@
 - [Flags](#flags)
 - [Configuration](#configuration)
 - [Stats](#stats)
+- [Language](#language)
 - [Uninstall](#uninstall)
 
 ## Overview
-![Description of the GIF](./docs/assets/demo.gif)
-I wanted to create a simple typing game to improve my typing speed and accuracy. I really like using [monkeytype](https://monkeytype.com/) and I thought, why not create something similar
-in the terminal? I searched for some but didn't find anything I really liked, so I built it myself. Typy is a terminal-based typing game that displays a random
-word and asks you to type it as fast as possible. The game tracks your typing speed and accuracy, allowing you to monitor your progress over time. Typy also supports
-different game modes, such as uppercase and punctuation, to help you improve your typing skills in different areas.
+A minimalistic Monkeytype clone for the terminal. Typy displays random words for you to type as fast as possible, tracking your WPM, accuracy, and consistency over time.
+
+### Features
+- **Backspace support** — delete and retype within the current line, across word boundaries
+- **Multiple languages** — English and Spanish built-in, easy to add more
+- **Timer starts on first keypress** — no wasted seconds
+- **Enhanced results screen** — WPM/raw/accuracy graph with error markers, average line, character breakdown, consistency score
+- **Personal best detection** — confetti animation when you set a new record
+- **Leaderboard** — top 5 scores shown after each test
+- **Game modes** — normal, uppercase, and punctuation modes
+- **Fully configurable** — colors, cursor style, default mode, and language via TOML config
 
 ## Installation
 To install Typy, you can use the [Cargo] package manager:
@@ -32,69 +39,62 @@ To install Typy, you can use the [Cargo] package manager:
 [Cargo]: https://doc.rust-lang.org/cargo/
 
 ```bash
-cargo install --git "https://github.com/Pazl27/typy-cli.git" --tag "v0.9.0"
+cargo install --git "https://github.com/data-diego/typy-cli.git"
 ```
 
-If you prefer to get the newest version and compile it yourself, follow these steps:
+If you prefer to compile it yourself:
 
-1. Clone the Typy repository:
+1. Clone the repository:
     ```bash
-    git clone https://github.com/Pazl27/typy-cli.git
+    git clone https://github.com/data-diego/typy-cli.git
     cd typy-cli
     ```
 
-2. Compile the project:
+2. Compile and install:
     ```bash
-    cargo build --release
+    cargo install --path .
     ```
 
-3. Move the compiled binary to a directory in your PATH:
+3. (Optional) Add an alias for quick access:
     ```bash
-    sudo mv target/release/typy /usr/local/bin/
+    echo 'alias ty="typy"' >> ~/.zshrc
+    source ~/.zshrc
     ```
 
-4. Ensure the `english.txt` file is in the correct location:
-    ```bash
-    mkdir -p ~/.local/share/typy
-    cp resources/english.txt ~/.local/share/typy/
-    ```
-
-If you have Nix with flakes enabled, you can install typy-cli directly:
-
-```bash
-nix profile install github:Pazl27/typy-cli
-```
-
-Or to run without installing:
-
-```bash
-nix run github:Pazl27/typy-cli
-```
+Word lists are downloaded automatically on first run.
 
 ## Flags
-The `Typy` application supports the following flags:
+```
+Usage: typy [OPTIONS]
 
-- `-t, --time <duration>`: Sets the duration of the game. The default value is `30`.
-  - if you set the time to a too low value the graph ends up scuffed.
-  - e.g., `typy-cli -t 60` sets the game duration to 60 seconds.
+Options:
+  -t, --time <TIME>     Duration of the game [default: 30]
+  -l, --lang <LANG>     Language for the word list (e.g. english, spanish)
+  -s, --stats           Display game stats
+  -c, --config          Create and open config file
+  -m, --mode <MODE>...  Sets the mode of the game
+  -h, --help            Print help
+  -V, --version         Print version
+```
 
-- `-s, --stats`: Shows the stats of the game.
-  - not implemented atm.
-  - e.g., `typy-cli --stats` displays the game statistics.
+### Examples
+```bash
+typy                    # English, 30 seconds
+typy -t 60              # English, 60 seconds
+typy -l spanish         # Spanish, 30 seconds
+typy -l s -t 60         # Spanish, 60 seconds (shorthand)
+typy -m uppercase       # Uppercase mode
+typy -m uppercase,punctuation  # Combined modes
+```
 
-- `-c, --config`: Creates a config file if it doesn't exist and opens it.
-  - e.g., `typy-cli --config` creates and opens the configuration file.
-
-- `-m, --mode <mode>`: Sets the mode of the game. Multiple values can be specified.
-  - possible modes are `uppercase`, `punctuation` and `normal`.
-  - e.g., `typy-cli -m uppercase,punctuation` sets the game mode to uppercase and punctuation.
-
+### Language shorthands
+| Shorthand | Language |
+|-----------|----------|
+| `e`, `en`, `eng` | English |
+| `s`, `es`, `esp` | Spanish |
 
 ## Configuration
-Typy allows you to configure the colors (theme) via a TOML file. The configuration file is located at `~/.config/typy/config.toml`. You can also configure Typy using the command line with the `typy -c` option.
-Inside of the configuration file, you can specify the colors for the theme, graph, and cursor style. Also you can specify some default settings.
-
-Here is an example configuration block for the `config.toml` file:
+Typy is configured via a TOML file at `~/.config/typy/config.toml`. Use `typy -c` to create and open it.
 
 ```toml
 # ~/.config/typy/config.toml
@@ -105,54 +105,50 @@ missing = "#918273"
 error = "#FB4934"
 accent = "#D3869B"
 
-[graph]
-data = "#8EC07C"
-title = "#458588"
-axis = "#B16286"
-
 [cursor]
-style = "SteadyBar" # possible options are: DefaultUserShape, BlinkingBlock, SteadyBlock, BlinkingUnderScore, SteadyUnderScore, BlinkingBar, SteadyBar,
+style = "SteadyBar" # DefaultUserShape, BlinkingBlock, SteadyBlock, BlinkingUnderScore, SteadyUnderScore, BlinkingBar, SteadyBar
 
 [modes]
-default_mode = "normal" # possible modes are "normal"|"uppercase"|"punctuation", combinations of modes is also possible e.g: "uppercase, punctuation"
-uppercase_chance = "3" # possible are values between 0 and 1, if value is too high it gets clamped to 1, if too low it gets clamped to 0
-punctuation_chance = "0.5" # possible are values between 0 and 1, if value is too high it gets clamped to 1, if too low it gets clamped to 0
+default_mode = "normal" # "normal", "uppercase", "punctuation", or combinations like "uppercase, punctuation"
+uppercase_chance = "0.3"
+punctuation_chance = "0.5"
 
 [language]
-lang = "english" # select your desired language
+lang = "english"
 ```
-
-To apply the configuration, you can either edit the `config.toml` file directly or use the `typy -c` command to to open the file in your preferred editor:
-
-```bash
-typy -c 
-```
-
-This allows you to customize the appearance of Typy to match your preferences.
 
 ## Stats
-The stats are saved in a file located at `~/.local/share/typy/stats.json`. The stats file tracks the stats of the past 10 games. Also it shows the average WPM,
-RAW and accuracy of the all games played.
-To check your stats you can use the `typy --stats` command.
+Game stats are saved at `~/.local/share/typy/scores.json` (last 10 games + running averages).
 
+View your stats with:
 ```bash
 typy -s
 ```
-This will display the stats of the last 10 games and looks something like this:
-![Stats](./docs/assets/snapshot_2025-02-24_00-28-16.png)
-To close this view press `Ctrl + c` or `esc`.
+
+After each test you'll see:
+- **WPM graph** — net WPM (yellow) and raw WPM (grey) over time, with error markers (red) and average line
+- **Character breakdown** — correct/incorrect/extra
+- **Consistency** — how steady your typing speed was
+- **Leaderboard** — your top 5 scores
 
 ## Language
-The language files are located at `~/.local/share/typy/`. The default language is `english`. You can change the language by editing the `config.toml` file or by using the
-`typy -c` command. If you want to add a new language you can create a new file in the `~/.local/share/typy/` directory and add the words in the following format:
-```txt
-word1
-word2
-...
+Word lists are stored at `~/.local/share/typy/`. Built-in languages: `english`, `spanish`.
+
+To add a new language, create a text file with one word per line:
 ```
-The language file should be named after the language you want to add. For example, if you want to add a German language file, you would create a file named `german.txt` and add the German words to it.
-If you want to use the new language you need to change the `lang` field in the `config.toml` file to the name of the language file without the `.txt` extension.
-If you want to provide a new language to the Typy repository, feel free to create a pull request. Atm I only have the `english.txt` file in the repository.
+~/.local/share/typy/german.txt
+```
+
+Then use it with:
+```bash
+typy -l german
+```
+
+Or set it as default in `config.toml`:
+```toml
+[language]
+lang = "german"
+```
 
 ## Uninstall
 ```bash
