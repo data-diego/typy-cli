@@ -1,7 +1,7 @@
 use crate::scores::graph;
 use crate::scores::progress::Data;
 use anyhow::{Context, Result};
-use crossterm::cursor::MoveTo;
+use crossterm::cursor::{self, MoveTo};
 use crossterm::event::{read, Event, KeyCode, KeyEvent};
 use crossterm::style::{Color, SetForegroundColor};
 use crossterm::terminal::{size, Clear, ClearType};
@@ -34,6 +34,9 @@ pub fn show_stats(
     stdout
         .execute(Clear(ClearType::All))
         .context("Failed to clear terminal")?;
+    stdout
+        .execute(cursor::Hide)
+        .context("Failed to hide cursor")?;
 
     let (cols, rows) = size()?;
 

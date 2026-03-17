@@ -66,12 +66,14 @@ pub fn handle_input(
 }
 
 fn handle_space(game: &mut Game, stdout: &std::io::Stdout, x: u16, y: u16) -> Result<InputAction> {
-    if let InputAction::Continue = handle_space_at_start(game)? {
+    if let InputAction::Continue = handle_start_of_line(game)? {
         return Ok(InputAction::Continue);
     }
 
-    if let InputAction::Continue = handle_start_of_line(game)? {
-        return Ok(InputAction::Continue);
+    // If previous char is already a space, don't skip — let it fall through
+    // to handle_chars where it will be counted as an error
+    if let InputAction::Continue = handle_space_at_start(game)? {
+        return Ok(InputAction::None); // fall through to handle_chars
     }
 
     if let InputAction::Continue = handle_end_of_line(game, stdout, x, y)? {
@@ -288,7 +290,34 @@ fn handle_backspace(
     x: u16,
     y: u16,
 ) -> Result<()> {
+    // At start of a line, go back to end of previous line
     if game.player.position_x <= 0 {
+        if game.player.position_y <= 0 {
+            return Ok(());
+        }
+        game.player.position_y -= 1;
+        let py = game.player.position_y as usize;
+        let prev_line = game.get_word_string(game.player.position_y);
+        game.player.position_x = prev_line.chars().count() as i32;
+
+        // Restore selected_word_index and jump_position for previous line
+        let word_count = game.list[py].len() as i32;
+        game.selected_word_index = word_count;
+        if word_count > 0 {
+            game.jump_position = game.list[py]
+                .iter()
+                .take(word_count as usize)
+                .map(|word| word.chars().count() + 1)
+                .sum::<usize>() as i32
+                - 1;
+        } else {
+            game.jump_position = 0;
+        }
+
+        stdout.execute(MoveTo(
+            x + game.player.position_x as u16,
+            y + game.player.position_y as u16,
+        ))?;
         return Ok(());
     }
 
