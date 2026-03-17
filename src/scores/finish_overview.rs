@@ -315,7 +315,7 @@ fn draw_leaderboard(
         stdout.execute(SetForegroundColor(theme.fg))?;
         print!(
             "  {} wpm   {:.1}% acc   {}",
-            score.wpm, score.accuracy, score.get_date()
+            score.wpm, score.accuracy, score.get_human_time()
         );
     }
 

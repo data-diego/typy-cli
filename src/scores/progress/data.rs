@@ -151,6 +151,44 @@ impl Score {
         self.timestamp.format("%H:%M:%S").to_string()
     }
 
+    pub fn get_human_time(&self) -> String {
+        let now = chrono::Local::now().naive_local();
+        let diff = now.signed_duration_since(self.timestamp);
+
+        if diff.num_minutes() < 1 {
+            return "just now".to_string();
+        }
+        if diff.num_minutes() < 60 {
+            let m = diff.num_minutes();
+            return format!("{}m ago", m);
+        }
+        if diff.num_hours() < 24 {
+            let h = diff.num_hours();
+            return format!("{}h ago", h);
+        }
+
+        // Show date + local time in 12h format
+        let hour = self.timestamp.format("%I").to_string();
+        let hour = hour.trim_start_matches('0'); // no leading zero
+        let ampm = self.timestamp.format("%p").to_string().to_lowercase();
+        let tz = iana_time_zone::get_timezone().unwrap_or_default();
+        // Extract city name from timezone (e.g. "America/Mexico_City" → "Mexico City")
+        let city = tz
+            .rsplit('/')
+            .next()
+            .unwrap_or(&tz)
+            .replace('_', " ");
+
+        format!(
+            "{} at {}:{} {} {}",
+            self.timestamp.format("%b %d"),
+            hour,
+            self.timestamp.format("%M"),
+            ampm,
+            city
+        )
+    }
+
     pub fn sort_scores(scores: &mut [Score]) {
         scores.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
     }
