@@ -19,7 +19,6 @@ use crate::terminal::PostGameAction;
 
 struct MenuItem {
     label: String,
-    shortcut: Option<char>,
     action: PostGameAction,
 }
 
@@ -34,9 +33,7 @@ pub fn show_stats(
     stdout
         .execute(Clear(ClearType::All))
         .context("Failed to clear terminal")?;
-    stdout
-        .execute(cursor::Hide)
-        .context("Failed to hide cursor")?;
+    stdout.execute(cursor::Hide)?;
 
     let (cols, rows) = size()?;
 
@@ -44,14 +41,13 @@ pub fn show_stats(
         draw_confetti(stdout, cols, rows)?;
     }
 
-    // --- Centered layout ---
+    // --- Layout: center the graph, place stats to its left ---
     let left_width = 15u16;
     let gap = 3u16;
-    let graph_width = cols.saturating_sub(40).min(70).max(30);
-    let total_width = left_width + gap + graph_width;
-    let left_x = (cols.saturating_sub(total_width)) / 2;
-    let graph_x = left_x + left_width + gap;
+    let graph_width = cols.saturating_sub(30).min(80).max(30);
     let graph_height = rows.saturating_sub(16).min(12).max(6);
+    let graph_x = (cols.saturating_sub(graph_width)) / 2;
+    let left_x = graph_x.saturating_sub(gap + left_width);
     let graph_y = 2u16;
     let stats_y = graph_y + graph_height + 1;
 
@@ -88,7 +84,7 @@ pub fn show_stats(
 
     stdout.flush()?;
 
-    // -- Graph --
+    // -- Graph (centered) --
     let wpm_data = stats.wpm_per_second();
     let raw_wpm_data = stats.raw_wpm_per_second();
     let avg_wpm = stats.wpm();
@@ -96,13 +92,17 @@ pub fn show_stats(
     graph::draw_graph(&wpm_data, &raw_wpm_data, &stats.errors_ps, avg_wpm, graph_area)
         .context("Failed to draw graph")?;
 
-    // -- Bottom stats row --
+    // Re-hide cursor after tui graph (tui Terminal may show it on drop)
+    stdout.execute(cursor::Hide)?;
+
+    // -- Bottom stats row (centered under graph) --
     let correct = stats.correct_chars();
     let incorrect = (stats.incorrect_letters - stats.extra_chars).max(0);
     let extra = stats.extra_chars;
     let consistency = stats.consistency();
 
-    let col_width = total_width / 4;
+    let stats_total_width = graph_width + gap + left_width;
+    let col_width = stats_total_width / 4;
 
     stdout.execute(SetForegroundColor(theme.missing))?;
     let labels = ["test type", "characters", "consistency", "time"];
@@ -135,7 +135,7 @@ pub fn show_stats(
 
     stdout.flush()?;
 
-    // -- Interactive menu --
+    // -- Interactive menu (arrows only, no letter shortcuts) --
     let menu_items = build_menu(duration, language);
     let mut selected: usize = 0; // "replay" preselected
     let menu_y = rows.saturating_sub(3);
@@ -144,20 +144,18 @@ pub fn show_stats(
 
     // hint line
     let hint_y = rows.saturating_sub(1);
-    stdout.execute(MoveTo(0, hint_y))?;
-    stdout.execute(SetForegroundColor(theme.missing))?;
-    let hint = "arrows select   enter/tab confirm   esc quit";
+    let hint = "< > select   enter/tab confirm   esc quit";
     let hx = cols / 2 - hint.len() as u16 / 2;
     stdout.execute(MoveTo(hx, hint_y))?;
+    stdout.execute(SetForegroundColor(theme.missing))?;
     print!("{}", hint);
     stdout.flush()?;
 
-    // -- Input loop --
+    // -- Input loop (arrows + enter/tab/esc only) --
     loop {
         if let Ok(Event::Key(KeyEvent { code, .. })) = read() {
             match code {
                 KeyCode::Esc => return Ok(PostGameAction::Quit),
-                KeyCode::Char('c') => return Ok(PostGameAction::Quit),
                 KeyCode::Left => {
                     if selected > 0 {
                         selected -= 1;
@@ -175,27 +173,6 @@ pub fn show_stats(
                 KeyCode::Tab | KeyCode::Enter => {
                     return Ok(menu_items.into_iter().nth(selected).unwrap().action);
                 }
-                KeyCode::Char(c) => {
-                    // Shortcut keys still work
-                    for item in &menu_items {
-                        if item.shortcut == Some(c) {
-                            return Ok(PostGameAction::Replay {
-                                duration: match c {
-                                    '1' => 15,
-                                    '2' => 30,
-                                    '3' => 60,
-                                    '4' => 120,
-                                    _ => duration,
-                                },
-                                lang: match c {
-                                    'e' => "english".to_string(),
-                                    's' => "spanish".to_string(),
-                                    _ => language.to_string(),
-                                },
-                            });
-                        }
-                    }
-                }
                 _ => {}
             }
         }
@@ -206,7 +183,6 @@ fn build_menu(duration: u64, language: &str) -> Vec<MenuItem> {
     vec![
         MenuItem {
             label: "replay".to_string(),
-            shortcut: None,
             action: PostGameAction::Replay {
                 duration,
                 lang: language.to_string(),
@@ -214,7 +190,6 @@ fn build_menu(duration: u64, language: &str) -> Vec<MenuItem> {
         },
         MenuItem {
             label: "15s".to_string(),
-            shortcut: Some('1'),
             action: PostGameAction::Replay {
                 duration: 15,
                 lang: language.to_string(),
@@ -222,7 +197,6 @@ fn build_menu(duration: u64, language: &str) -> Vec<MenuItem> {
         },
         MenuItem {
             label: "30s".to_string(),
-            shortcut: Some('2'),
             action: PostGameAction::Replay {
                 duration: 30,
                 lang: language.to_string(),
@@ -230,7 +204,6 @@ fn build_menu(duration: u64, language: &str) -> Vec<MenuItem> {
         },
         MenuItem {
             label: "60s".to_string(),
-            shortcut: Some('3'),
             action: PostGameAction::Replay {
                 duration: 60,
                 lang: language.to_string(),
@@ -238,7 +211,6 @@ fn build_menu(duration: u64, language: &str) -> Vec<MenuItem> {
         },
         MenuItem {
             label: "120s".to_string(),
-            shortcut: Some('4'),
             action: PostGameAction::Replay {
                 duration: 120,
                 lang: language.to_string(),
@@ -246,7 +218,6 @@ fn build_menu(duration: u64, language: &str) -> Vec<MenuItem> {
         },
         MenuItem {
             label: "english".to_string(),
-            shortcut: Some('e'),
             action: PostGameAction::Replay {
                 duration,
                 lang: "english".to_string(),
@@ -254,7 +225,6 @@ fn build_menu(duration: u64, language: &str) -> Vec<MenuItem> {
         },
         MenuItem {
             label: "spanish".to_string(),
-            shortcut: Some('s'),
             action: PostGameAction::Replay {
                 duration,
                 lang: "spanish".to_string(),
@@ -262,7 +232,6 @@ fn build_menu(duration: u64, language: &str) -> Vec<MenuItem> {
         },
         MenuItem {
             label: "quit".to_string(),
-            shortcut: None,
             action: PostGameAction::Quit,
         },
     ]
@@ -276,18 +245,11 @@ fn draw_menu(
     y: u16,
     cols: u16,
 ) -> Result<()> {
-    // Calculate total width of all items
+    // Calculate total width: each item is " label " (unselected) or "[label]" (selected)
     let total_len: usize = items
         .iter()
-        .map(|item| {
-            let shortcut_len = match &item.shortcut {
-                Some(c) => format!("{} ", c).len(),
-                None => 0,
-            };
-            shortcut_len + item.label.len() + 2 // +2 for brackets or padding
-        })
-        .sum::<usize>()
-        + (items.len() - 1) * 3; // spacing between items
+        .map(|item| item.label.len() + 4) // padding/brackets + spacing
+        .sum::<usize>();
 
     let start_x = (cols as usize).saturating_sub(total_len) / 2;
 
@@ -301,37 +263,15 @@ fn draw_menu(
         stdout.execute(MoveTo(cx, y))?;
 
         if i == selected {
-            // Selected: bright accent with brackets
             stdout.execute(SetForegroundColor(theme.accent))?;
-            if let Some(shortcut) = item.shortcut {
-                print!("[");
-                stdout.execute(SetForegroundColor(theme.fg))?;
-                print!("{}", shortcut);
-                stdout.execute(SetForegroundColor(theme.accent))?;
-                print!(" {}]", item.label);
-                cx += item.label.len() as u16 + 4; // shortcut + space + brackets
-            } else {
-                print!("[{}]", item.label);
-                cx += item.label.len() as u16 + 2;
-            }
+            print!("[{}]", item.label);
+            cx += item.label.len() as u16 + 2;
         } else {
-            // Unselected: dim
-            if let Some(shortcut) = item.shortcut {
-                stdout.execute(SetForegroundColor(theme.missing))?;
-                print!(" ");
-                stdout.execute(SetForegroundColor(Color::Rgb { r: 140, g: 140, b: 140 }))?;
-                print!("{}", shortcut);
-                stdout.execute(SetForegroundColor(theme.missing))?;
-                print!(" {} ", item.label);
-                cx += item.label.len() as u16 + 4;
-            } else {
-                stdout.execute(SetForegroundColor(theme.missing))?;
-                print!(" {} ", item.label);
-                cx += item.label.len() as u16 + 2;
-            }
+            stdout.execute(SetForegroundColor(theme.missing))?;
+            print!(" {} ", item.label);
+            cx += item.label.len() as u16 + 2;
         }
 
-        // Spacing
         if i < items.len() - 1 {
             cx += 1;
         }
