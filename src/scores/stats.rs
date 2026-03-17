@@ -70,31 +70,28 @@ impl Stats {
         (self.total_letters() - self.incorrect_letters).max(0)
     }
 
+    /// Instantaneous net WPM per second (smoothed with 3s rolling average)
     pub fn wpm_per_second(&self) -> Vec<f64> {
-        let mut result = Vec::new();
-        let mut total = 0i32;
-        let mut total_errors = 0i32;
-        for (i, &letters) in self.lps.iter().enumerate() {
-            total += letters;
-            if i < self.errors_ps.len() {
-                total_errors += self.errors_ps[i];
-            }
-            let minutes = (i + 1) as f64 / 60.0;
-            let net = (total - total_errors).max(0);
-            result.push((net as f64 / 5.0) / minutes);
-        }
-        result
+        let instant: Vec<f64> = self
+            .lps
+            .iter()
+            .enumerate()
+            .map(|(i, &l)| {
+                let errors = if i < self.errors_ps.len() {
+                    self.errors_ps[i]
+                } else {
+                    0
+                };
+                (l - errors).max(0) as f64 * 12.0 // chars/sec * 60/5
+            })
+            .collect();
+        smooth(&instant, 3)
     }
 
+    /// Instantaneous raw WPM per second (smoothed with 3s rolling average)
     pub fn raw_wpm_per_second(&self) -> Vec<f64> {
-        let mut result = Vec::new();
-        let mut total = 0i32;
-        for (i, &letters) in self.lps.iter().enumerate() {
-            total += letters;
-            let minutes = (i + 1) as f64 / 60.0;
-            result.push((total as f64 / 5.0) / minutes);
-        }
-        result
+        let instant: Vec<f64> = self.lps.iter().map(|&l| l as f64 * 12.0).collect();
+        smooth(&instant, 3)
     }
 
     pub fn consistency(&self) -> f64 {
@@ -114,4 +111,15 @@ impl Stats {
         let cv = variance.sqrt() / mean;
         (100.0 - cv * 100.0).clamp(0.0, 100.0)
     }
+}
+
+fn smooth(data: &[f64], window: usize) -> Vec<f64> {
+    data.iter()
+        .enumerate()
+        .map(|(i, _)| {
+            let start = i.saturating_sub(window - 1);
+            let slice = &data[start..=i];
+            slice.iter().sum::<f64>() / slice.len() as f64
+        })
+        .collect()
 }

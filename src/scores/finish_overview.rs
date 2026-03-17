@@ -103,6 +103,29 @@ pub fn show_stats(
     // Re-hide cursor after tui graph (tui Terminal may show it on drop)
     stdout.execute(cursor::Hide)?;
 
+    // -- Graph legend --
+    {
+        let legend_y = graph_y + graph_height;
+        let legend_x = graph_x + 2;
+        stdout.execute(MoveTo(legend_x, legend_y))?;
+        stdout.execute(SetForegroundColor(Color::Yellow))?;
+        print!("--");
+        stdout.execute(SetForegroundColor(theme.missing))?;
+        print!(" wpm  ");
+        stdout.execute(SetForegroundColor(Color::Rgb { r: 100, g: 100, b: 100 }))?;
+        print!("--");
+        stdout.execute(SetForegroundColor(theme.missing))?;
+        print!(" raw  ");
+        stdout.execute(SetForegroundColor(Color::Rgb { r: 70, g: 70, b: 70 }))?;
+        print!("..");
+        stdout.execute(SetForegroundColor(theme.missing))?;
+        print!(" avg  ");
+        stdout.execute(SetForegroundColor(Color::Red))?;
+        print!("*");
+        stdout.execute(SetForegroundColor(theme.missing))?;
+        print!(" errors");
+    }
+
     // -- Bottom stats row (centered under graph) --
     let correct = stats.correct_chars();
     let incorrect = (stats.incorrect_letters - stats.extra_chars).max(0);
