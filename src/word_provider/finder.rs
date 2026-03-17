@@ -18,7 +18,7 @@ static WORDS_DIR: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
     }
 });
 const WORDS_URL: &str =
-    "https://raw.githubusercontent.com/Pazl27/typy-cli/refs/heads/master/resources/";
+    "https://raw.githubusercontent.com/data-diego/typy-cli/refs/heads/master/resources/";
 
 pub fn find(language: &str, lenght: i32) -> Result<Vec<String>> {
     let Some(words_file) = WORDS_DIR

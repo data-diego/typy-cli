@@ -34,6 +34,9 @@ struct Cli {
 
     #[arg(short = 'm', long = "mode", num_args = 1.., help = "Sets the mode of the game")]
     mode: Vec<String>,
+
+    #[arg(short = 'l', long = "lang", help = "Language for the word list (e.g. english, spanish)")]
+    lang: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -61,7 +64,7 @@ fn main() -> Result<()> {
         .context("Failed to parse mode")?
         .add_duration(duration);
 
-    terminal::run(mode, theme)?;
+    terminal::run(mode, theme, cli.lang)?;
 
     Ok(())
 }

@@ -65,10 +65,13 @@ impl Game {
     }
 }
 
-pub fn run(mode: Mode, theme: ThemeColors) -> Result<()> {
+pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Result<()> {
     let mut stdout = stdout();
 
-    let language = language::Language::new();
+    let language = match lang_override {
+        Some(lang) => language::Language { lang },
+        None => language::Language::new(),
+    };
     let mut game = Game::new(
         word_provider::get_words(&language.lang).context("Failed to get words from file")?,
     );
