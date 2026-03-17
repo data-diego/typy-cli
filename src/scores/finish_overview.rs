@@ -97,7 +97,8 @@ pub fn show_stats(
     let raw_wpm_data = stats.raw_wpm_per_second();
     let avg_wpm = stats.wpm();
     let graph_area = Rect::new(graph_x, graph_y, graph_width, graph_height);
-    graph::draw_graph(&wpm_data, &raw_wpm_data, &stats.errors_ps, avg_wpm, graph_area)
+    let active_errors = stats.active_errors_ps();
+    graph::draw_graph(&wpm_data, &raw_wpm_data, &active_errors, avg_wpm, graph_area)
         .context("Failed to draw graph")?;
 
     // Re-hide cursor after tui graph (tui Terminal may show it on drop)

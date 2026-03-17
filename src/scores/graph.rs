@@ -132,7 +132,7 @@ pub fn draw_graph(
             datasets.push(
                 Dataset::default()
                     .name("errors")
-                    .marker(symbols::Marker::Block)
+                    .marker(symbols::Marker::Dot)
                     .graph_type(GraphType::Scatter)
                     .style(Style::default().fg(tui::style::Color::Red))
                     .data(&error_points),

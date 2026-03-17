@@ -70,15 +70,22 @@ impl Stats {
         (self.total_letters() - self.incorrect_letters).max(0)
     }
 
+    /// Find first second where user actually typed something
+    fn first_active_second(&self) -> usize {
+        self.lps.iter().position(|&l| l > 0).unwrap_or(0)
+    }
+
     /// Instantaneous net WPM per second (smoothed with 3s rolling average)
+    /// Skips leading idle seconds before first word typed
     pub fn wpm_per_second(&self) -> Vec<f64> {
-        let instant: Vec<f64> = self
-            .lps
+        let start = self.first_active_second();
+        let instant: Vec<f64> = self.lps[start..]
             .iter()
             .enumerate()
             .map(|(i, &l)| {
-                let errors = if i < self.errors_ps.len() {
-                    self.errors_ps[i]
+                let idx = start + i;
+                let errors = if idx < self.errors_ps.len() {
+                    self.errors_ps[idx]
                 } else {
                     0
                 };
@@ -89,9 +96,17 @@ impl Stats {
     }
 
     /// Instantaneous raw WPM per second (smoothed with 3s rolling average)
+    /// Skips leading idle seconds before first word typed
     pub fn raw_wpm_per_second(&self) -> Vec<f64> {
-        let instant: Vec<f64> = self.lps.iter().map(|&l| l as f64 * 12.0).collect();
+        let start = self.first_active_second();
+        let instant: Vec<f64> = self.lps[start..].iter().map(|&l| l as f64 * 12.0).collect();
         smooth(&instant, 3)
+    }
+
+    /// Errors per second, skipping leading idle seconds
+    pub fn active_errors_ps(&self) -> Vec<i32> {
+        let start = self.first_active_second();
+        self.errors_ps[start..].to_vec()
     }
 
     pub fn consistency(&self) -> f64 {
