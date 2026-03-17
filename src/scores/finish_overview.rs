@@ -17,6 +17,12 @@ use crate::config::theme::ThemeColors;
 use crate::scores::Stats;
 use crate::terminal::PostGameAction;
 
+struct MenuItem {
+    label: String,
+    shortcut: Option<char>,
+    action: PostGameAction,
+}
+
 pub fn show_stats(
     mut stdout: &std::io::Stdout,
     stats: Stats,
@@ -120,63 +126,72 @@ pub fn show_stats(
 
     // -- Leaderboard --
     let lb_y = stats_y + 4;
-    if lb_y + 2 < rows.saturating_sub(2) {
+    if lb_y + 2 < rows.saturating_sub(4) {
         draw_leaderboard(stdout, theme, left_x, lb_y)?;
     }
 
-    // -- Keyboard shortcuts hint --
-    let hint_y = rows.saturating_sub(2);
-    draw_hints(stdout, theme, hint_y, cols)?;
-
     stdout.flush()?;
 
-    // -- Wait for input --
+    // -- Interactive menu --
+    let menu_items = build_menu(duration, language);
+    let mut selected: usize = 0; // "replay" preselected
+    let menu_y = rows.saturating_sub(3);
+
+    draw_menu(stdout, theme, &menu_items, selected, menu_y, cols)?;
+
+    // hint line
+    let hint_y = rows.saturating_sub(1);
+    stdout.execute(MoveTo(0, hint_y))?;
+    stdout.execute(SetForegroundColor(theme.missing))?;
+    let hint = "arrows select   enter/tab confirm   esc quit";
+    let hx = cols / 2 - hint.len() as u16 / 2;
+    stdout.execute(MoveTo(hx, hint_y))?;
+    print!("{}", hint);
+    stdout.flush()?;
+
+    // -- Input loop --
     loop {
         if let Ok(Event::Key(KeyEvent { code, .. })) = read() {
             match code {
                 KeyCode::Esc => return Ok(PostGameAction::Quit),
-                KeyCode::Char('c') => return Ok(PostGameAction::Quit), // ctrl+c handled elsewhere but just in case
+                KeyCode::Char('c') => return Ok(PostGameAction::Quit),
+                KeyCode::Left => {
+                    if selected > 0 {
+                        selected -= 1;
+                    }
+                    draw_menu(stdout, theme, &menu_items, selected, menu_y, cols)?;
+                    stdout.flush()?;
+                }
+                KeyCode::Right => {
+                    if selected < menu_items.len() - 1 {
+                        selected += 1;
+                    }
+                    draw_menu(stdout, theme, &menu_items, selected, menu_y, cols)?;
+                    stdout.flush()?;
+                }
                 KeyCode::Tab | KeyCode::Enter => {
-                    return Ok(PostGameAction::Replay {
-                        duration,
-                        lang: language.to_string(),
-                    });
+                    return Ok(menu_items.into_iter().nth(selected).unwrap().action);
                 }
-                KeyCode::Char('1') => {
-                    return Ok(PostGameAction::Replay {
-                        duration: 15,
-                        lang: language.to_string(),
-                    });
-                }
-                KeyCode::Char('2') => {
-                    return Ok(PostGameAction::Replay {
-                        duration: 30,
-                        lang: language.to_string(),
-                    });
-                }
-                KeyCode::Char('3') => {
-                    return Ok(PostGameAction::Replay {
-                        duration: 60,
-                        lang: language.to_string(),
-                    });
-                }
-                KeyCode::Char('4') => {
-                    return Ok(PostGameAction::Replay {
-                        duration: 120,
-                        lang: language.to_string(),
-                    });
-                }
-                KeyCode::Char('e') => {
-                    return Ok(PostGameAction::Replay {
-                        duration,
-                        lang: "english".to_string(),
-                    });
-                }
-                KeyCode::Char('s') => {
-                    return Ok(PostGameAction::Replay {
-                        duration,
-                        lang: "spanish".to_string(),
-                    });
+                KeyCode::Char(c) => {
+                    // Shortcut keys still work
+                    for item in &menu_items {
+                        if item.shortcut == Some(c) {
+                            return Ok(PostGameAction::Replay {
+                                duration: match c {
+                                    '1' => 15,
+                                    '2' => 30,
+                                    '3' => 60,
+                                    '4' => 120,
+                                    _ => duration,
+                                },
+                                lang: match c {
+                                    'e' => "english".to_string(),
+                                    's' => "spanish".to_string(),
+                                    _ => language.to_string(),
+                                },
+                            });
+                        }
+                    }
                 }
                 _ => {}
             }
@@ -184,18 +199,140 @@ pub fn show_stats(
     }
 }
 
-fn draw_hints(
+fn build_menu(duration: u64, language: &str) -> Vec<MenuItem> {
+    vec![
+        MenuItem {
+            label: "replay".to_string(),
+            shortcut: None,
+            action: PostGameAction::Replay {
+                duration,
+                lang: language.to_string(),
+            },
+        },
+        MenuItem {
+            label: "15s".to_string(),
+            shortcut: Some('1'),
+            action: PostGameAction::Replay {
+                duration: 15,
+                lang: language.to_string(),
+            },
+        },
+        MenuItem {
+            label: "30s".to_string(),
+            shortcut: Some('2'),
+            action: PostGameAction::Replay {
+                duration: 30,
+                lang: language.to_string(),
+            },
+        },
+        MenuItem {
+            label: "60s".to_string(),
+            shortcut: Some('3'),
+            action: PostGameAction::Replay {
+                duration: 60,
+                lang: language.to_string(),
+            },
+        },
+        MenuItem {
+            label: "120s".to_string(),
+            shortcut: Some('4'),
+            action: PostGameAction::Replay {
+                duration: 120,
+                lang: language.to_string(),
+            },
+        },
+        MenuItem {
+            label: "english".to_string(),
+            shortcut: Some('e'),
+            action: PostGameAction::Replay {
+                duration,
+                lang: "english".to_string(),
+            },
+        },
+        MenuItem {
+            label: "spanish".to_string(),
+            shortcut: Some('s'),
+            action: PostGameAction::Replay {
+                duration,
+                lang: "spanish".to_string(),
+            },
+        },
+        MenuItem {
+            label: "quit".to_string(),
+            shortcut: None,
+            action: PostGameAction::Quit,
+        },
+    ]
+}
+
+fn draw_menu(
     mut stdout: &std::io::Stdout,
     theme: &ThemeColors,
+    items: &[MenuItem],
+    selected: usize,
     y: u16,
     cols: u16,
 ) -> Result<()> {
-    let hints = "tab replay   1 15s  2 30s  3 60s  4 120s   e english  s spanish   esc quit";
-    let hx = cols / 2 - hints.len() as u16 / 2;
+    // Calculate total width of all items
+    let total_len: usize = items
+        .iter()
+        .map(|item| {
+            let shortcut_len = match &item.shortcut {
+                Some(c) => format!("{} ", c).len(),
+                None => 0,
+            };
+            shortcut_len + item.label.len() + 2 // +2 for brackets or padding
+        })
+        .sum::<usize>()
+        + (items.len() - 1) * 3; // spacing between items
 
-    stdout.execute(MoveTo(hx, y))?;
-    stdout.execute(SetForegroundColor(theme.missing))?;
-    print!("{}", hints);
+    let start_x = (cols as usize).saturating_sub(total_len) / 2;
+
+    // Clear the menu line
+    stdout.execute(MoveTo(0, y))?;
+    print!("{}", " ".repeat(cols as usize));
+
+    let mut cx = start_x as u16;
+
+    for (i, item) in items.iter().enumerate() {
+        stdout.execute(MoveTo(cx, y))?;
+
+        if i == selected {
+            // Selected: bright accent with brackets
+            stdout.execute(SetForegroundColor(theme.accent))?;
+            if let Some(shortcut) = item.shortcut {
+                print!("[");
+                stdout.execute(SetForegroundColor(theme.fg))?;
+                print!("{}", shortcut);
+                stdout.execute(SetForegroundColor(theme.accent))?;
+                print!(" {}]", item.label);
+                cx += item.label.len() as u16 + 4; // shortcut + space + brackets
+            } else {
+                print!("[{}]", item.label);
+                cx += item.label.len() as u16 + 2;
+            }
+        } else {
+            // Unselected: dim
+            if let Some(shortcut) = item.shortcut {
+                stdout.execute(SetForegroundColor(theme.missing))?;
+                print!(" ");
+                stdout.execute(SetForegroundColor(Color::Rgb { r: 140, g: 140, b: 140 }))?;
+                print!("{}", shortcut);
+                stdout.execute(SetForegroundColor(theme.missing))?;
+                print!(" {} ", item.label);
+                cx += item.label.len() as u16 + 4;
+            } else {
+                stdout.execute(SetForegroundColor(theme.missing))?;
+                print!(" {} ", item.label);
+                cx += item.label.len() as u16 + 2;
+            }
+        }
+
+        // Spacing
+        if i < items.len() - 1 {
+            cx += 1;
+        }
+    }
 
     Ok(())
 }
