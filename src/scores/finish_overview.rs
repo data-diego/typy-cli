@@ -2,7 +2,7 @@ use crate::scores::graph;
 use crate::scores::progress::Data;
 use anyhow::{Context, Result};
 use crossterm::cursor::MoveTo;
-use crossterm::event::{read, Event, KeyEvent};
+use crossterm::event::{read, Event, KeyCode, KeyEvent};
 use crossterm::style::{Color, SetForegroundColor};
 use crossterm::terminal::{size, Clear, ClearType};
 use crossterm::ExecutableCommand;
@@ -15,7 +15,7 @@ use tui::layout::Rect;
 
 use crate::config::theme::ThemeColors;
 use crate::scores::Stats;
-use crate::terminal;
+use crate::terminal::PostGameAction;
 
 pub fn show_stats(
     mut stdout: &std::io::Stdout,
@@ -24,7 +24,7 @@ pub fn show_stats(
     duration: u64,
     language: &str,
     is_personal_best: bool,
-) -> Result<()> {
+) -> Result<PostGameAction> {
     stdout
         .execute(Clear(ClearType::All))
         .context("Failed to clear terminal")?;
@@ -35,17 +35,18 @@ pub fn show_stats(
         draw_confetti(stdout, cols, rows)?;
     }
 
-    // Layout
-    let left_x = 3u16;
-    let graph_x = 18u16;
-    let graph_width = cols.saturating_sub(graph_x + 3).min(80);
-    let graph_height = rows.saturating_sub(14).min(12).max(6);
+    // --- Centered layout ---
+    let left_width = 15u16;
+    let gap = 3u16;
+    let graph_width = cols.saturating_sub(40).min(70).max(30);
+    let total_width = left_width + gap + graph_width;
+    let left_x = (cols.saturating_sub(total_width)) / 2;
+    let graph_x = left_x + left_width + gap;
+    let graph_height = rows.saturating_sub(16).min(12).max(6);
     let graph_y = 2u16;
     let stats_y = graph_y + graph_height + 1;
 
     // -- Left side stats --
-
-    // WPM
     stdout.execute(MoveTo(left_x, graph_y))?;
     stdout.execute(SetForegroundColor(theme.missing))?;
     print!("wpm");
@@ -53,7 +54,6 @@ pub fn show_stats(
     stdout.execute(SetForegroundColor(theme.accent))?;
     print!("{}", stats.wpm() as i32);
 
-    // ACC
     stdout.execute(MoveTo(left_x, graph_y + 3))?;
     stdout.execute(SetForegroundColor(theme.missing))?;
     print!("acc");
@@ -61,7 +61,6 @@ pub fn show_stats(
     stdout.execute(SetForegroundColor(theme.accent))?;
     print!("{:.1}%", stats.accuracy());
 
-    // RAW
     stdout.execute(MoveTo(left_x, graph_y + 6))?;
     stdout.execute(SetForegroundColor(theme.missing))?;
     print!("raw");
@@ -94,9 +93,8 @@ pub fn show_stats(
     let extra = stats.extra_chars;
     let consistency = stats.consistency();
 
-    let col_width = (cols / 5).max(14);
+    let col_width = total_width / 4;
 
-    // Labels
     stdout.execute(SetForegroundColor(theme.missing))?;
     let labels = ["test type", "characters", "consistency", "time"];
     for (i, label) in labels.iter().enumerate() {
@@ -104,7 +102,6 @@ pub fn show_stats(
         print!("{}", label);
     }
 
-    // Values
     stdout.execute(SetForegroundColor(theme.accent))?;
     let values = [
         format!("time {}", duration),
@@ -117,29 +114,88 @@ pub fn show_stats(
         print!("{}", val);
     }
 
-    // Language under test type
     stdout.execute(SetForegroundColor(theme.accent))?;
     stdout.execute(MoveTo(left_x, stats_y + 2))?;
     print!("{}", language);
 
     // -- Leaderboard --
     let lb_y = stats_y + 4;
-    if lb_y + 2 < rows {
+    if lb_y + 2 < rows.saturating_sub(2) {
         draw_leaderboard(stdout, theme, left_x, lb_y)?;
     }
 
+    // -- Keyboard shortcuts hint --
+    let hint_y = rows.saturating_sub(2);
+    draw_hints(stdout, theme, hint_y, cols)?;
+
     stdout.flush()?;
 
+    // -- Wait for input --
     loop {
-        if let Ok(Event::Key(KeyEvent {
-            code, modifiers, ..
-        })) = read()
-        {
-            if terminal::close_typy(&code, &modifiers).is_some() {
-                break;
+        if let Ok(Event::Key(KeyEvent { code, .. })) = read() {
+            match code {
+                KeyCode::Esc => return Ok(PostGameAction::Quit),
+                KeyCode::Char('c') => return Ok(PostGameAction::Quit), // ctrl+c handled elsewhere but just in case
+                KeyCode::Tab | KeyCode::Enter => {
+                    return Ok(PostGameAction::Replay {
+                        duration,
+                        lang: language.to_string(),
+                    });
+                }
+                KeyCode::Char('1') => {
+                    return Ok(PostGameAction::Replay {
+                        duration: 15,
+                        lang: language.to_string(),
+                    });
+                }
+                KeyCode::Char('2') => {
+                    return Ok(PostGameAction::Replay {
+                        duration: 30,
+                        lang: language.to_string(),
+                    });
+                }
+                KeyCode::Char('3') => {
+                    return Ok(PostGameAction::Replay {
+                        duration: 60,
+                        lang: language.to_string(),
+                    });
+                }
+                KeyCode::Char('4') => {
+                    return Ok(PostGameAction::Replay {
+                        duration: 120,
+                        lang: language.to_string(),
+                    });
+                }
+                KeyCode::Char('e') => {
+                    return Ok(PostGameAction::Replay {
+                        duration,
+                        lang: "english".to_string(),
+                    });
+                }
+                KeyCode::Char('s') => {
+                    return Ok(PostGameAction::Replay {
+                        duration,
+                        lang: "spanish".to_string(),
+                    });
+                }
+                _ => {}
             }
         }
     }
+}
+
+fn draw_hints(
+    mut stdout: &std::io::Stdout,
+    theme: &ThemeColors,
+    y: u16,
+    cols: u16,
+) -> Result<()> {
+    let hints = "tab replay   1 15s  2 30s  3 60s  4 120s   e english  s spanish   esc quit";
+    let hx = cols / 2 - hints.len() as u16 / 2;
+
+    stdout.execute(MoveTo(hx, y))?;
+    stdout.execute(SetForegroundColor(theme.missing))?;
+    print!("{}", hints);
 
     Ok(())
 }
@@ -171,9 +227,7 @@ fn draw_leaderboard(
         stdout.execute(SetForegroundColor(theme.fg))?;
         print!(
             "  {} wpm   {:.1}% acc   {}",
-            score.wpm,
-            score.accuracy,
-            score.get_date()
+            score.wpm, score.accuracy, score.get_date()
         );
     }
 

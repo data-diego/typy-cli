@@ -65,7 +65,7 @@ impl Game {
     }
 }
 
-pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Result<()> {
+pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Result<super::PostGameAction> {
     let mut stdout = stdout();
 
     let language = match lang_override {
@@ -196,7 +196,7 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
         }
     }
 
-    if !game.quit {
+    let action = if !game.quit {
         stdout.execute(cursor::Hide)?;
 
         // Check personal best before saving
@@ -218,15 +218,17 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
         );
         Data::save_data(score).context("Failed to save data")?;
         finish_overview::show_stats(&stdout, stats, &theme, duration, &lang_name, is_pb)
-            .context("Failed to show stats")?;
-    }
+            .context("Failed to show stats")?
+    } else {
+        super::PostGameAction::Quit
+    };
 
     reset_terminal(&stdout).context("Failed to reset terminal")?;
     timer_expired.store(true, Ordering::Relaxed);
     timer_thread
         .join()
         .map_err(|e| anyhow::anyhow!("Failed to join timer thread: {:?}", e))?;
-    Ok(())
+    Ok(action)
 }
 
 fn setup_terminal(mut stdout: &std::io::Stdout) -> Result<()> {

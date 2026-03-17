@@ -2,7 +2,7 @@ use crossterm::style::Color;
 
 use crate::config::toml_parser::get_config;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ThemeColors {
     pub fg: Color,
     pub missing: Color,
