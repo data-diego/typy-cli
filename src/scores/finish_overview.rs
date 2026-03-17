@@ -41,14 +41,22 @@ pub fn show_stats(
         draw_confetti(stdout, cols, rows)?;
     }
 
-    // --- Layout: center the graph, place stats to its left ---
+    // --- Layout: center graph horizontally and everything vertically ---
     let left_width = 15u16;
     let gap = 3u16;
     let graph_width = cols.saturating_sub(30).min(80).max(30);
     let graph_height = rows.saturating_sub(16).min(12).max(6);
     let graph_x = (cols.saturating_sub(graph_width)) / 2;
     let left_x = graph_x.saturating_sub(gap + left_width);
-    let graph_y = 2u16;
+
+    // Total content height: pb_banner(1) + graph + stats_row(3) + gap(1) + leaderboard(~6) + gap(1) + menu(1) + hint(1)
+    let content_height = graph_height + 3 + 1 + 7 + 1 + 1 + 1;
+    let graph_y = if is_personal_best {
+        rows.saturating_sub(content_height + 1) / 2 + 1 // +1 for banner above
+    } else {
+        rows.saturating_sub(content_height) / 2
+    }
+    .max(1);
     let stats_y = graph_y + graph_height + 1;
 
     // -- Left side stats --
