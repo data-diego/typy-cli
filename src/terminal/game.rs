@@ -65,6 +65,39 @@ impl Game {
     }
 }
 
+/// Redraw the entire game view (clear + words + timer) at the given position.
+fn redraw_game(
+    stdout: &mut std::io::Stdout,
+    game: &Game,
+    theme: &ThemeColors,
+    x: u16,
+    y: u16,
+    line_length: i32,
+    remaining: u64,
+) -> Result<()> {
+    stdout.execute(Clear(ClearType::All))?;
+
+    // Draw all word lines in missing color
+    for (i, words) in game.list.iter().enumerate() {
+        print_words(x, y + i as u16, words, stdout, theme)?;
+    }
+
+    // Draw timer centered above text
+    let timer_x = x + (line_length as u16 / 2).saturating_sub(1);
+    stdout.execute(MoveTo(timer_x, y.saturating_sub(2)))?;
+    stdout.execute(SetForegroundColor(theme.accent))?;
+    print!("{:02}", remaining);
+
+    // Move cursor to player position
+    stdout.execute(MoveTo(
+        x + game.player.position_x as u16,
+        y + game.player.position_y as u16,
+    ))?;
+    stdout.flush()?;
+
+    Ok(())
+}
+
 pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Result<super::PostGameAction> {
     let mut stdout = stdout();
 
@@ -75,8 +108,11 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
 
     setup_terminal(&stdout).context("Failed to setup terminal")?;
 
-    let (x, y, line_length) =
+    let (init_x, init_y, line_length) =
         super::calc_middle_for_text().context("Failed to calculate terminal size")?;
+
+    let mut x = init_x;
+    let mut y = init_y;
 
     let mut game = Game::new(
         word_provider::get_words(&language.lang, line_length)
@@ -106,9 +142,9 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
 
     // Display initial timer value before starting
     {
-        let timer_x = x + (line_length as u16 / 2) - 1;
+        let timer_x = x + (line_length as u16 / 2).saturating_sub(1);
         stdout
-            .execute(MoveTo(timer_x, y - 2))
+            .execute(MoveTo(timer_x, y.saturating_sub(2)))
             .context("Failed to move cursor")?;
         stdout
             .execute(SetForegroundColor(theme.accent))
@@ -155,9 +191,9 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
             let remaining = *remaining_time
                 .lock()
                 .map_err(|e| anyhow::anyhow!("Failed to lock remaining time: {}", e))?;
-            let timer_x = x + (line_length as u16 / 2) - 1;
+            let timer_x = x + (line_length as u16 / 2).saturating_sub(1);
             stdout
-                .execute(MoveTo(timer_x, y - 2))
+                .execute(MoveTo(timer_x, y.saturating_sub(2)))
                 .context("Failed to move cursor")?;
             stdout
                 .execute(SetForegroundColor(theme.accent))
@@ -177,24 +213,36 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
         }
 
         if poll(Duration::from_millis(5)).context("Failed to poll for events")? {
-            if let Ok(Event::Key(KeyEvent {
-                code, modifiers, ..
-            })) = read().context("Failed to read event")
-            {
-                if let Some(()) = super::close_typy(&code, &modifiers) {
-                    timer_expired.store(true, Ordering::Relaxed);
-                    game.quit = true;
-                    break;
+            match read().context("Failed to read event")? {
+                Event::Key(KeyEvent {
+                    code, modifiers, ..
+                }) => {
+                    if let Some(()) = super::close_typy(&code, &modifiers) {
+                        timer_expired.store(true, Ordering::Relaxed);
+                        game.quit = true;
+                        break;
+                    }
+                    // Start the timer on the first real keypress
+                    if !timer_started.load(Ordering::Relaxed) {
+                        timer_started.store(true, Ordering::Relaxed);
+                    }
+                    match handle_input(&mut game, &stdout, code, &mut stats, &theme, x, y)? {
+                        InputAction::Continue => continue,
+                        InputAction::Break => break,
+                        InputAction::None => {}
+                    }
                 }
-                // Start the timer on the first real keypress
-                if !timer_started.load(Ordering::Relaxed) {
-                    timer_started.store(true, Ordering::Relaxed);
+                Event::Resize(_, _) => {
+                    // Recalculate position and redraw everything
+                    let (new_x, new_y) = super::terminal_utils::recalc_position(line_length)?;
+                    x = new_x;
+                    y = new_y;
+                    let remaining = *remaining_time
+                        .lock()
+                        .map_err(|e| anyhow::anyhow!("Failed to lock remaining time: {}", e))?;
+                    redraw_game(&mut stdout, &game, &theme, x, y, line_length, remaining)?;
                 }
-                match handle_input(&mut game, &stdout, code, &mut stats, &theme, x, y)? {
-                    InputAction::Continue => continue,
-                    InputAction::Break => break,
-                    InputAction::None => {}
-                }
+                _ => {}
             }
         }
     }

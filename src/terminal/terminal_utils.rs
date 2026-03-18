@@ -26,3 +26,14 @@ pub fn calc_middle_for_text() -> Result<(u16, u16, i32)> {
 
     Ok((x, y, line_length))
 }
+
+/// Recalculate x, y for existing words (line_length stays the same).
+pub fn recalc_position(line_length: i32) -> Result<(u16, u16)> {
+    let (cols, rows) = crossterm::terminal::size().context("Failed to get terminal size")?;
+
+    let x = (cols / 2).saturating_sub((line_length / 2) as u16);
+    let x = x.max(MIN_PADDING);
+    let y = rows.saturating_sub(2) / 2;
+
+    Ok((x, y))
+}
