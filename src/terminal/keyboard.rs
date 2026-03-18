@@ -109,13 +109,21 @@ fn handle_end_of_line(
     x: u16,
     y: u16,
 ) -> Result<InputAction> {
-    if game.selected_word_index
-        == game
-            .list
-            .get(game.player.position_y as usize)
-            .context("Failed to get word from list")?
-            .len() as i32
-            - 1
+    let line_len = game
+        .get_word_string(game.player.position_y)
+        .chars()
+        .count() as i32;
+
+    // Only transition to next line if we're on the last word AND
+    // we've typed past the end of the line (not mid-word)
+    if game.player.position_x >= line_len
+        && game.selected_word_index
+            == game
+                .list
+                .get(game.player.position_y as usize)
+                .context("Failed to get word from list")?
+                .len() as i32
+                - 1
     {
         if game.player.position_y == game.list.len() as i32 {
             return Ok(InputAction::Break);
