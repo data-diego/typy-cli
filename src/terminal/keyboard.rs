@@ -18,19 +18,25 @@ pub enum InputAction {
     None,
 }
 
+/// Get the x offset for a given line index.
+fn lx(line_xs: &[u16], py: i32) -> u16 {
+    line_xs[py as usize]
+}
+
 pub fn handle_input(
     game: &mut Game,
     mut stdout: &std::io::Stdout,
     code: KeyCode,
     stats: &mut Stats,
     theme: &ThemeColors,
-    x: u16,
+    line_xs: &[u16],
     y: u16,
 ) -> Result<InputAction> {
     match code {
         KeyCode::Char(c) => {
+            let x = lx(line_xs, game.player.position_y);
             if c == ' ' {
-                match handle_space(game, stdout, x, y)? {
+                match handle_space(game, stdout, line_xs, y)? {
                     InputAction::Continue => return Ok(InputAction::Continue),
                     InputAction::Break => return Ok(InputAction::Break),
                     InputAction::None => {}
@@ -57,7 +63,7 @@ pub fn handle_input(
             stdout.flush().context("Failed to flush stdout")?;
         }
         KeyCode::Backspace => {
-            handle_backspace(game, theme, stdout, x, y)?;
+            handle_backspace(game, theme, stdout, line_xs, y)?;
             stdout.flush().context("Failed to flush stdout")?;
         }
         _ => {}
@@ -65,7 +71,7 @@ pub fn handle_input(
     Ok(InputAction::None)
 }
 
-fn handle_space(game: &mut Game, stdout: &std::io::Stdout, x: u16, y: u16) -> Result<InputAction> {
+fn handle_space(game: &mut Game, stdout: &std::io::Stdout, line_xs: &[u16], y: u16) -> Result<InputAction> {
     if let InputAction::Continue = handle_space_at_start(game)? {
         return Ok(InputAction::Continue);
     }
@@ -74,7 +80,7 @@ fn handle_space(game: &mut Game, stdout: &std::io::Stdout, x: u16, y: u16) -> Re
         return Ok(InputAction::Continue);
     }
 
-    if let InputAction::Continue = handle_end_of_line(game, stdout, x, y)? {
+    if let InputAction::Continue = handle_end_of_line(game, stdout, line_xs, y)? {
         return Ok(InputAction::Continue);
     }
 
@@ -83,14 +89,13 @@ fn handle_space(game: &mut Game, stdout: &std::io::Stdout, x: u16, y: u16) -> Re
     }
 
     // Only jump to next word if we're actually at a word boundary (expected char is a space).
-    // If we're mid-word, let the space fall through to handle_chars where it's treated as a
-    // typed character (error since expected != ' ').
     let word_string = game.get_word_string(game.player.position_y);
     let expected = word_string.chars().nth(game.player.position_x as usize);
     if expected.is_some() && expected != Some(' ') {
-        return Ok(InputAction::None); // fall through to handle_chars
+        return Ok(InputAction::None);
     }
 
+    let x = lx(line_xs, game.player.position_y);
     handle_jump_position(game, stdout, x, y)?;
 
     Ok(InputAction::None)
@@ -106,7 +111,7 @@ fn handle_start_of_line(game: &Game) -> Result<InputAction> {
 fn handle_end_of_line(
     game: &mut Game,
     mut stdout: &std::io::Stdout,
-    x: u16,
+    line_xs: &[u16],
     y: u16,
 ) -> Result<InputAction> {
     let line_len = game
@@ -114,8 +119,6 @@ fn handle_end_of_line(
         .chars()
         .count() as i32;
 
-    // Only transition to next line if we're on the last word AND
-    // we've typed past the end of the line (not mid-word)
     if game.player.position_x >= line_len
         && game.selected_word_index
             == game
@@ -134,9 +137,10 @@ fn handle_end_of_line(
         game.jump_position = 0;
         game.selected_word_index = 0;
 
+        let new_x = lx(line_xs, game.player.position_y);
         stdout
             .execute(MoveTo(
-                x + game.player.position_x as u16,
+                new_x + game.player.position_x as u16,
                 y + game.player.position_y as u16,
             ))
             .context("Failed to move cursor")?;
@@ -302,7 +306,7 @@ fn handle_backspace(
     game: &mut Game,
     theme: &ThemeColors,
     mut stdout: &std::io::Stdout,
-    x: u16,
+    line_xs: &[u16],
     y: u16,
 ) -> Result<()> {
     // At start of a line, go back to end of previous line
@@ -329,6 +333,7 @@ fn handle_backspace(
             game.jump_position = 0;
         }
 
+        let x = lx(line_xs, game.player.position_y);
         stdout.execute(MoveTo(
             x + game.player.position_x as u16,
             y + game.player.position_y as u16,
@@ -336,6 +341,7 @@ fn handle_backspace(
         return Ok(());
     }
 
+    let x = lx(line_xs, game.player.position_y);
     let current_line = game.get_word_string(game.player.position_y);
     let prev_pos = (game.player.position_x - 1) as usize;
 
