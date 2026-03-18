@@ -266,7 +266,10 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
         let is_pb = if current_wpm > 0 {
             match Data::get_scores() {
                 Ok(scores) if scores.is_empty() => true,
-                Ok(scores) => scores.iter().all(|s| current_wpm > s.wpm),
+                Ok(scores) => {
+                    let best = scores.iter().map(|s| s.wpm).max().unwrap_or(0);
+                    current_wpm > best
+                }
                 Err(_) => true,
             }
         } else {

@@ -418,8 +418,10 @@ fn draw_confetti(mut stdout: &std::io::Stdout, cols: u16, rows: u16) -> Result<(
     ];
     let mut rng = rand::rng();
 
-    for _ in 0..4 {
-        for _ in 0..50 {
+    // Build up confetti over multiple frames
+    for frame in 0..6 {
+        let count = 30 + frame * 15; // more particles each frame
+        for _ in 0..count {
             let cx: u16 = rng.random_range(0..cols);
             let cy: u16 = rng.random_range(0..rows);
             let ch = confetti_chars.choose(&mut rng).unwrap();
@@ -429,8 +431,20 @@ fn draw_confetti(mut stdout: &std::io::Stdout, cols: u16, rows: u16) -> Result<(
             print!("{}", ch);
         }
         stdout.flush()?;
-        thread::sleep(Duration::from_millis(150));
+        thread::sleep(Duration::from_millis(120));
     }
+
+    // Show the "NEW PERSONAL BEST!" banner on top of confetti
+    let banner = "*** NEW PERSONAL BEST! ***";
+    let bx = cols / 2 - banner.len() as u16 / 2;
+    let by = rows / 2;
+    stdout.execute(MoveTo(bx, by))?;
+    stdout.execute(SetForegroundColor(Color::Yellow))?;
+    print!("{}", banner);
+    stdout.flush()?;
+
+    // Hold for a moment so the user can see it
+    thread::sleep(Duration::from_millis(800));
 
     stdout.execute(Clear(ClearType::All))?;
     Ok(())
