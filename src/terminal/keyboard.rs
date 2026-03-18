@@ -82,6 +82,15 @@ fn handle_space(game: &mut Game, stdout: &std::io::Stdout, x: u16, y: u16) -> Re
         return Ok(InputAction::Continue);
     }
 
+    // Only jump to next word if we're actually at a word boundary (expected char is a space).
+    // If we're mid-word, let the space fall through to handle_chars where it's treated as a
+    // typed character (error since expected != ' ').
+    let word_string = game.get_word_string(game.player.position_y);
+    let expected = word_string.chars().nth(game.player.position_x as usize);
+    if expected.is_some() && expected != Some(' ') {
+        return Ok(InputAction::None); // fall through to handle_chars
+    }
+
     handle_jump_position(game, stdout, x, y)?;
 
     Ok(InputAction::None)
