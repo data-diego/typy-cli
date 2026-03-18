@@ -6,10 +6,28 @@
    |  |       |  |   |  | --'    |  |
    `--'       `--'   `--'        `--'
   </pre>
+  <p>A minimalistic <a href="https://monkeytype.com/">Monkeytype</a> clone for the terminal.</p>
 </div>
 
-> [!WARNING]
-> When the terminal is too small it can lead to strange behavior.
+> This is a fork of [Pazl27/typy-cli](https://github.com/Pazl27/typy-cli) with the following improvements:
+
+### What's new in this fork
+- **Backspace support** — delete and retype across words and lines (original had no backspace)
+- **Space mid-word protection** — pressing space mid-word counts as an error, not a skip
+- **Spanish language** — built-in Spanish word list with `-l s` shorthand
+- **Language flag** — `-l` / `--lang` CLI argument with shorthands (`s`, `es`, `e`, `en`)
+- **Timer starts on first keypress** — no wasted seconds staring at the screen
+- **Responsive layout** — text adapts to terminal width, centered paragraph style, dynamic resize
+- **Alternate screen buffer** — proper full-screen rendering, no leftover text after exit
+- **Instantaneous WPM graph** — per-second WPM with 3s smoothing (not cumulative), error markers on the raw line, average WPM line, color legend, proper axis scales
+- **Enhanced results screen** — character breakdown (correct/incorrect/extra), consistency score, vertically and horizontally centered layout with padding
+- **Personal best detection** — confetti animation + banner when you beat your record
+- **Leaderboard** — top 5 scores with human-friendly timestamps ("5m ago", "Mar 16 at 6:14 pm Mexico City")
+- **Quick replay menu** — arrow-key navigation to replay, change time (15/30/60/120s), switch language, or quit — no need to restart the CLI
+- **Dynamic terminal resize** — both typing test and results screen redraw on resize
+- **Better theme defaults** — dimmer untyped text for clearer contrast
+
+---
 
 ## Table of contents
 - [Overview](#overview)
@@ -22,18 +40,18 @@
 - [Uninstall](#uninstall)
 
 ## Overview
-A minimalistic Monkeytype clone for the terminal. Typy displays random words for you to type as fast as possible, tracking your WPM, accuracy, and consistency over time.
+Typy displays random words for you to type as fast as possible, tracking your WPM, accuracy, and consistency over time.
 
 ### Features
 - **Backspace support** — delete and retype across words and lines
 - **Space mid-word protection** — pressing space mid-word counts as an error, not a skip
 - **Multiple languages** — English and Spanish built-in, easy to add more
 - **Timer starts on first keypress** — no wasted seconds
-- **Responsive layout** — text and UI adapt to terminal width with proper padding
-- **Dynamic resize** — results screen reflows when you resize the terminal
+- **Responsive layout** — text and UI adapt to terminal width with proper padding and centered paragraph alignment
+- **Dynamic resize** — typing test and results screen reflow when you resize the terminal
 - **Enhanced results screen** — instantaneous WPM graph with error markers, average line, character breakdown, consistency score, and color legend
 - **Personal best detection** — confetti animation when you set a new record
-- **Leaderboard** — top 5 scores with human-readable timestamps (e.g. "5m ago", "Mar 16 at 6:14 pm Mexico City")
+- **Leaderboard** — top 5 scores with human-readable timestamps
 - **Quick replay** — arrow-key menu on results screen to replay, change time, or switch language without restarting
 - **Game modes** — normal, uppercase, and punctuation modes
 - **Fully configurable** — colors, cursor style, default mode, and language via TOML config
