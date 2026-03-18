@@ -40,7 +40,7 @@ struct DrawData {
     is_personal_best: bool,
 }
 
-const GRAPH_PAD_X: u16 = 2;
+const CONTENT_PAD_LEFT: u16 = 4;
 const GRAPH_PAD_Y: u16 = 1;
 
 pub fn show_stats(
@@ -136,13 +136,10 @@ fn draw_all(
     // --- Layout with padding ---
     let left_width = 15u16;
     let gap = 3u16;
-    let graph_width = cols
-        .saturating_sub(30 + GRAPH_PAD_X * 2)
-        .min(80)
-        .max(30);
+    let graph_width = cols.saturating_sub(30).min(80).max(30);
     let graph_height = rows.saturating_sub(18).min(12).max(6);
     let graph_x = (cols.saturating_sub(graph_width)) / 2;
-    let left_x = graph_x.saturating_sub(gap + left_width);
+    let left_x = graph_x.saturating_sub(gap + left_width).max(CONTENT_PAD_LEFT);
 
     // Vertical centering
     let content_height = graph_height + GRAPH_PAD_Y + 3 + 1 + 7 + 1 + 1 + 1;
