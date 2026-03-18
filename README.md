@@ -16,6 +16,7 @@
 - [Installation](#installation)
 - [Flags](#flags)
 - [Configuration](#configuration)
+- [Results screen](#results-screen)
 - [Stats](#stats)
 - [Language](#language)
 - [Uninstall](#uninstall)
@@ -24,12 +25,16 @@
 A minimalistic Monkeytype clone for the terminal. Typy displays random words for you to type as fast as possible, tracking your WPM, accuracy, and consistency over time.
 
 ### Features
-- **Backspace support** — delete and retype within the current line, across word boundaries
+- **Backspace support** — delete and retype across words and lines
+- **Space mid-word protection** — pressing space mid-word counts as an error, not a skip
 - **Multiple languages** — English and Spanish built-in, easy to add more
 - **Timer starts on first keypress** — no wasted seconds
-- **Enhanced results screen** — WPM/raw/accuracy graph with error markers, average line, character breakdown, consistency score
+- **Responsive layout** — text and UI adapt to terminal width with proper padding
+- **Dynamic resize** — results screen reflows when you resize the terminal
+- **Enhanced results screen** — instantaneous WPM graph with error markers, average line, character breakdown, consistency score, and color legend
 - **Personal best detection** — confetti animation when you set a new record
-- **Leaderboard** — top 5 scores shown after each test
+- **Leaderboard** — top 5 scores with human-readable timestamps (e.g. "5m ago", "Mar 16 at 6:14 pm Mexico City")
+- **Quick replay** — arrow-key menu on results screen to replay, change time, or switch language without restarting
 - **Game modes** — normal, uppercase, and punctuation modes
 - **Fully configurable** — colors, cursor style, default mode, and language via TOML config
 
@@ -117,19 +122,33 @@ punctuation_chance = "0.5"
 lang = "english"
 ```
 
+## Results screen
+
+After each test you'll see a full results screen:
+
+- **WPM graph** — instantaneous net WPM (yellow) and raw WPM (grey) per second with 3-second smoothing, error markers (red dots on the raw line), and average WPM line. Y axis uses clean multiples of 20, X axis shows time labels every 5-10s.
+- **Color legend** — below the graph showing what each line/marker means
+- **Character breakdown** — correct/incorrect/extra counts
+- **Consistency** — how steady your typing speed was across the test
+- **Leaderboard** — your top 5 scores with human-friendly timestamps
+- **Personal best** — confetti animation + banner when you beat your record
+
+### Results screen controls
+| Key | Action |
+|-----|--------|
+| `< >` arrows | Navigate menu options |
+| `Enter` / `Tab` | Confirm selection |
+| `Esc` | Quit |
+
+Menu options: replay (same settings), time presets (15s/30s/60s/120s), language switch, quit.
+
 ## Stats
 Game stats are saved at `~/.local/share/typy/scores.json` (last 10 games + running averages).
 
-View your stats with:
+View your historical stats with:
 ```bash
 typy -s
 ```
-
-After each test you'll see:
-- **WPM graph** — net WPM (yellow) and raw WPM (grey) over time, with error markers (red) and average line
-- **Character breakdown** — correct/incorrect/extra
-- **Consistency** — how steady your typing speed was
-- **Leaderboard** — your top 5 scores
 
 ## Language
 Word lists are stored at `~/.local/share/typy/`. Built-in languages: `english`, `spanish`.

@@ -72,8 +72,15 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
         Some(lang) => language::Language { lang },
         None => language::Language::new(),
     };
+
+    setup_terminal(&stdout).context("Failed to setup terminal")?;
+
+    let (x, y, line_length) =
+        super::calc_middle_for_text().context("Failed to calculate terminal size")?;
+
     let mut game = Game::new(
-        word_provider::get_words(&language.lang).context("Failed to get words from file")?,
+        word_provider::get_words(&language.lang, line_length)
+            .context("Failed to get words from file")?,
     );
 
     mode.transform(&mut game.list);
@@ -81,10 +88,6 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
     let duration = mode.duration;
     let lang_name = language.lang.clone();
     let mut stats = Stats::new();
-
-    setup_terminal(&stdout).context("Failed to setup terminal")?;
-
-    let (x, y) = super::calc_middle_for_text().context("Failed to calculate terminal size")?;
 
     for (i, words) in game.list.iter().enumerate() {
         print_words(x, y + i as u16, words, &stdout, &theme)?;
@@ -103,7 +106,7 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
 
     // Display initial timer value before starting
     {
-        let timer_x = x + (super::terminal_utils::LINE_LENGTH as u16 / 2) - 1;
+        let timer_x = x + (line_length as u16 / 2) - 1;
         stdout
             .execute(MoveTo(timer_x, y - 2))
             .context("Failed to move cursor")?;
@@ -152,7 +155,7 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
             let remaining = *remaining_time
                 .lock()
                 .map_err(|e| anyhow::anyhow!("Failed to lock remaining time: {}", e))?;
-            let timer_x = x + (super::terminal_utils::LINE_LENGTH as u16 / 2) - 1;
+            let timer_x = x + (line_length as u16 / 2) - 1;
             stdout
                 .execute(MoveTo(timer_x, y - 2))
                 .context("Failed to move cursor")?;
