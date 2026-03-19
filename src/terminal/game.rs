@@ -263,12 +263,25 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
         stdout.execute(cursor::Hide)?;
 
         let current_wpm = stats.wpm() as u32;
+        let current_acc = stats.accuracy() as f32;
         let is_pb = if current_wpm > 0 {
             match Data::get_scores() {
                 Ok(scores) if scores.is_empty() => true,
                 Ok(scores) => {
-                    let best = scores.iter().map(|s| s.wpm).max().unwrap_or(0);
-                    current_wpm > best
+                    let best_wpm = scores.iter().map(|s| s.wpm).max().unwrap_or(0);
+                    if current_wpm > best_wpm {
+                        true
+                    } else if current_wpm == best_wpm {
+                        // Same WPM — PB if better accuracy than the best at that WPM
+                        let best_acc_at_wpm = scores
+                            .iter()
+                            .filter(|s| s.wpm == best_wpm)
+                            .map(|s| s.accuracy)
+                            .fold(0.0f32, f32::max);
+                        current_acc > best_acc_at_wpm
+                    } else {
+                        false
+                    }
                 }
                 Err(_) => true,
             }
