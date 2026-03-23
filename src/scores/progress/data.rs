@@ -78,8 +78,7 @@ impl Data {
         let file = File::open(&path).context("Failed to open scores.json file")?;
         let data: Data = match serde_json::from_reader(file) {
             Ok(data) => data,
-            Err(e) if e.is_eof() => Data::default(),
-            Err(e) => return Err(e).context("Failed to read scores from file"),
+            Err(_) => Data::default(),
         };
         Ok(data)
     }
