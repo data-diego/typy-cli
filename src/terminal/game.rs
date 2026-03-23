@@ -266,21 +266,28 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
         let current_acc = stats.accuracy() as f32;
         let is_pb = if current_wpm > 0 {
             match Data::get_scores() {
-                Ok(scores) if scores.is_empty() => true,
                 Ok(scores) => {
-                    let best_wpm = scores.iter().map(|s| s.wpm).max().unwrap_or(0);
-                    if current_wpm > best_wpm {
+                    // Filter by same language+duration category
+                    let cat_scores: Vec<&Score> = scores
+                        .iter()
+                        .filter(|s| s.language == lang_name && s.duration == duration)
+                        .collect();
+                    if cat_scores.is_empty() {
                         true
-                    } else if current_wpm == best_wpm {
-                        // Same WPM — PB if better accuracy than the best at that WPM
-                        let best_acc_at_wpm = scores
-                            .iter()
-                            .filter(|s| s.wpm == best_wpm)
-                            .map(|s| s.accuracy)
-                            .fold(0.0f32, f32::max);
-                        current_acc > best_acc_at_wpm
                     } else {
-                        false
+                        let best_wpm = cat_scores.iter().map(|s| s.wpm).max().unwrap_or(0);
+                        if current_wpm > best_wpm {
+                            true
+                        } else if current_wpm == best_wpm {
+                            let best_acc_at_wpm = cat_scores
+                                .iter()
+                                .filter(|s| s.wpm == best_wpm)
+                                .map(|s| s.accuracy)
+                                .fold(0.0f32, f32::max);
+                            current_acc > best_acc_at_wpm
+                        } else {
+                            false
+                        }
                     }
                 }
                 Err(_) => true,
@@ -293,6 +300,8 @@ pub fn run(mode: Mode, theme: ThemeColors, lang_override: Option<String>) -> Res
             current_wpm,
             stats.raw_wpm() as u32,
             stats.accuracy() as f32,
+            lang_name.clone(),
+            duration,
         );
         Data::save_data(score).context("Failed to save data")?;
         finish_overview::show_stats(&stdout, stats, &theme, duration, &lang_name, is_pb)

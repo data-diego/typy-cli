@@ -40,6 +40,14 @@ struct DrawData {
     is_personal_best: bool,
 }
 
+#[derive(Clone)]
+struct LeaderboardTab {
+    label: String,
+    language: String,
+    duration: u64,
+}
+
+
 const CONTENT_PAD_LEFT: u16 = 4;
 const GRAPH_PAD_Y: u16 = 1;
 
@@ -79,8 +87,13 @@ pub fn show_stats(
     let menu_items = build_menu(duration, language);
     let mut selected: usize = 0;
 
+    // Build leaderboard tabs
+    let lb_tabs = build_leaderboard_tabs(language, duration);
+    // Start on the "current" tab (index 0)
+    let mut lb_tab: usize = 0;
+
     // Initial draw
-    draw_all(stdout, theme, &data, &menu_items, selected)?;
+    draw_all(stdout, theme, &data, &menu_items, selected, &lb_tabs, lb_tab)?;
 
     // Input loop with resize handling
     loop {
@@ -106,14 +119,29 @@ pub fn show_stats(
                         draw_menu(stdout, theme, &menu_items, selected, menu_y, cols)?;
                         stdout.flush()?;
                     }
+                    KeyCode::Up => {
+                        if lb_tab > 0 {
+                            lb_tab -= 1;
+                        } else {
+                            lb_tab = lb_tabs.len() - 1;
+                        }
+                        draw_all(stdout, theme, &data, &menu_items, selected, &lb_tabs, lb_tab)?;
+                    }
+                    KeyCode::Down => {
+                        if lb_tab < lb_tabs.len() - 1 {
+                            lb_tab += 1;
+                        } else {
+                            lb_tab = 0;
+                        }
+                        draw_all(stdout, theme, &data, &menu_items, selected, &lb_tabs, lb_tab)?;
+                    }
                     KeyCode::Tab | KeyCode::Enter => {
                         return Ok(menu_items.into_iter().nth(selected).unwrap().action);
                     }
                     _ => {}
                 },
                 Event::Resize(_, _) => {
-                    // Redraw everything on terminal resize
-                    draw_all(stdout, theme, &data, &menu_items, selected)?;
+                    draw_all(stdout, theme, &data, &menu_items, selected, &lb_tabs, lb_tab)?;
                 }
                 _ => {}
             }
@@ -127,6 +155,8 @@ fn draw_all(
     data: &DrawData,
     menu_items: &[MenuItem],
     selected: usize,
+    lb_tabs: &[LeaderboardTab],
+    lb_tab: usize,
 ) -> Result<()> {
     stdout.execute(Clear(ClearType::All))?;
     stdout.execute(cursor::Hide)?;
@@ -251,7 +281,7 @@ fn draw_all(
     // -- Leaderboard --
     let lb_y = stats_y + 4;
     if lb_y + 2 < rows.saturating_sub(4) {
-        draw_leaderboard(stdout, theme, left_x, lb_y)?;
+        draw_leaderboard(stdout, theme, left_x, lb_y, lb_tabs, lb_tab)?;
     }
 
     // -- Menu --
@@ -260,7 +290,7 @@ fn draw_all(
 
     // -- Hint line --
     let hint_y = rows.saturating_sub(1);
-    let hint = "< > select   enter/tab confirm   esc quit";
+    let hint = "< > select   ^ v leaderboard   enter/tab confirm   esc quit";
     let hx = cols / 2 - hint.len() as u16 / 2;
     stdout.execute(MoveTo(hx, hint_y))?;
     stdout.execute(SetForegroundColor(theme.missing))?;
@@ -370,26 +400,93 @@ fn draw_menu(
     Ok(())
 }
 
+fn build_leaderboard_tabs(language: &str, duration: u64) -> Vec<LeaderboardTab> {
+    let mut tabs = vec![
+        // Current category first
+        LeaderboardTab {
+            label: format!("{} {}s", language, duration),
+            language: language.to_string(),
+            duration,
+        },
+    ];
+
+    // Add language-only tab (all durations for this language)
+    tabs.push(LeaderboardTab {
+        label: format!("{} all", language),
+        language: language.to_string(),
+        duration: 0,
+    });
+
+    // Add duration-only tab (all languages for this duration)
+    tabs.push(LeaderboardTab {
+        label: format!("all {}s", duration),
+        language: String::new(),
+        duration,
+    });
+
+    // Add global tab
+    tabs.push(LeaderboardTab {
+        label: "all".to_string(),
+        language: String::new(),
+        duration: 0,
+    });
+
+    tabs
+}
+
 fn draw_leaderboard(
     mut stdout: &std::io::Stdout,
     theme: &ThemeColors,
     x: u16,
     y: u16,
+    tabs: &[LeaderboardTab],
+    active_tab: usize,
 ) -> Result<()> {
     let scores = Data::get_scores().unwrap_or_else(|_| Vec::new());
     if scores.is_empty() {
         return Ok(());
     }
 
-    let mut sorted = scores;
-    sorted.sort_by(|a, b| b.wpm.cmp(&a.wpm));
-    sorted.truncate(5);
+    let tab = &tabs[active_tab];
 
+    // Filter scores by selected tab
+    let mut filtered: Vec<_> = scores
+        .into_iter()
+        .filter(|s| {
+            let lang_ok = tab.language.is_empty() || s.language == tab.language;
+            let dur_ok = tab.duration == 0 || s.duration == tab.duration;
+            lang_ok && dur_ok
+        })
+        .collect();
+
+    filtered.sort_by(|a, b| b.wpm.cmp(&a.wpm));
+    filtered.truncate(5);
+
+    // Draw tab bar
     stdout.execute(MoveTo(x, y))?;
-    stdout.execute(SetForegroundColor(theme.missing))?;
-    print!("--- leaderboard ---");
+    let mut cx = x;
+    for (i, t) in tabs.iter().enumerate() {
+        stdout.execute(MoveTo(cx, y))?;
+        if i == active_tab {
+            stdout.execute(SetForegroundColor(theme.accent))?;
+            print!("[{}]", t.label);
+            cx += t.label.len() as u16 + 2;
+        } else {
+            stdout.execute(SetForegroundColor(theme.missing))?;
+            print!(" {} ", t.label);
+            cx += t.label.len() as u16 + 2;
+        }
+        cx += 1;
+    }
 
-    for (i, score) in sorted.iter().enumerate() {
+    if filtered.is_empty() {
+        stdout.execute(MoveTo(x, y + 1))?;
+        stdout.execute(SetForegroundColor(theme.missing))?;
+        print!("no scores yet");
+        return Ok(());
+    }
+
+    for (i, score) in filtered.iter().enumerate() {
         let row = y + 1 + i as u16;
         stdout.execute(MoveTo(x, row))?;
         stdout.execute(SetForegroundColor(theme.accent))?;

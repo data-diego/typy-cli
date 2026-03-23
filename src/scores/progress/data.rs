@@ -38,6 +38,10 @@ pub struct Score {
     pub wpm: u32,
     pub raw: u32,
     pub accuracy: f32,
+    #[serde(default)]
+    pub language: String,
+    #[serde(default)]
+    pub duration: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -131,7 +135,7 @@ impl Default for Data {
 }
 
 impl Score {
-    pub fn new(wpm: u32, raw: u32, mut accuracy: f32) -> Score {
+    pub fn new(wpm: u32, raw: u32, mut accuracy: f32, language: String, duration: u64) -> Score {
         if accuracy.is_nan() {
             accuracy = 0.0;
         }
@@ -140,6 +144,8 @@ impl Score {
             wpm,
             raw,
             accuracy,
+            language,
+            duration,
         }
     }
 
@@ -197,7 +203,7 @@ impl Score {
         let mut scores = Data::get_scores()?;
         scores.push(score.clone());
 
-        if scores.len() > 10 {
+        if scores.len() > 50 {
             Self::sort_scores(&mut scores);
             Self::cleanup_scores(&mut scores);
         }
@@ -206,7 +212,7 @@ impl Score {
     }
 
     fn cleanup_scores(scores: &mut Vec<Score>) {
-        scores.truncate(10);
+        scores.truncate(50);
     }
 }
 
