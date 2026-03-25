@@ -15,7 +15,7 @@ use tui::layout::Rect;
 
 use crate::config::theme::ThemeColors;
 use crate::scores::Stats;
-use crate::terminal::PostGameAction;
+use crate::terminal::{GhostFrame, PostGameAction};
 
 struct MenuItem {
     label: String,
@@ -38,6 +38,7 @@ struct DrawData {
     duration: u64,
     language: String,
     is_personal_best: bool,
+    is_repeat: bool,
 }
 
 #[derive(Clone)]
@@ -58,6 +59,9 @@ pub fn show_stats(
     duration: u64,
     language: &str,
     is_personal_best: bool,
+    words: &[Vec<String>],
+    ghost_frames: Vec<GhostFrame>,
+    is_repeat: bool,
 ) -> Result<PostGameAction> {
     // Pre-compute all data so we can redraw on resize
     let data = DrawData {
@@ -75,6 +79,7 @@ pub fn show_stats(
         duration,
         language: language.to_string(),
         is_personal_best,
+        is_repeat,
     };
 
     if is_personal_best {
@@ -84,7 +89,7 @@ pub fn show_stats(
         draw_confetti(stdout, cols, rows)?;
     }
 
-    let menu_items = build_menu(duration, language);
+    let menu_items = build_menu(duration, language, words, ghost_frames);
     let mut selected: usize = 0;
 
     // Build leaderboard tabs
@@ -212,6 +217,15 @@ fn draw_all(
         print!("{}", banner);
     }
 
+    // Unranked banner for repeat mode
+    if data.is_repeat {
+        let banner = "unranked - score won't count for leaderboard";
+        let bx = (cols / 2).saturating_sub(banner.len() as u16 / 2);
+        stdout.execute(MoveTo(bx, graph_y.saturating_sub(1)))?;
+        stdout.execute(SetForegroundColor(Color::Rgb { r: 120, g: 120, b: 120 }))?;
+        print!("{}", banner);
+    }
+
     stdout.flush()?;
 
     // -- Graph (centered with padding) --
@@ -300,13 +314,22 @@ fn draw_all(
     Ok(())
 }
 
-fn build_menu(duration: u64, language: &str) -> Vec<MenuItem> {
+fn build_menu(duration: u64, language: &str, words: &[Vec<String>], ghost_frames: Vec<GhostFrame>) -> Vec<MenuItem> {
     vec![
         MenuItem {
             label: "replay".to_string(),
             action: PostGameAction::Replay {
                 duration,
                 lang: language.to_string(),
+            },
+        },
+        MenuItem {
+            label: "repeat".to_string(),
+            action: PostGameAction::Repeat {
+                duration,
+                lang: language.to_string(),
+                words: words.to_vec(),
+                ghost: ghost_frames,
             },
         },
         MenuItem {

@@ -70,12 +70,15 @@ fn main() -> Result<()> {
     let mut duration = cli.time;
     let mut lang: Option<String> = cli.lang.map(|l| resolve_lang(&l));
 
+    let mut repeat_words: Option<Vec<Vec<String>>> = None;
+    let mut ghost_data: Option<Vec<terminal::GhostFrame>> = None;
+
     loop {
         let mode = Mode::from_str(mode_strs.clone())
             .context("Failed to parse mode")?
             .add_duration(duration);
 
-        match terminal::run(mode, theme.clone(), lang.clone())? {
+        match terminal::run(mode, theme.clone(), lang.clone(), repeat_words.take(), ghost_data.take())? {
             PostGameAction::Quit => break,
             PostGameAction::Replay {
                 duration: new_dur,
@@ -83,6 +86,17 @@ fn main() -> Result<()> {
             } => {
                 duration = new_dur;
                 lang = Some(new_lang);
+            }
+            PostGameAction::Repeat {
+                duration: new_dur,
+                lang: new_lang,
+                words,
+                ghost,
+            } => {
+                duration = new_dur;
+                lang = Some(new_lang);
+                repeat_words = Some(words);
+                ghost_data = Some(ghost);
             }
         }
     }
