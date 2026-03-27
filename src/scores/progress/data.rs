@@ -176,21 +176,12 @@ impl Score {
         let hour = self.timestamp.format("%I").to_string();
         let hour = hour.trim_start_matches('0'); // no leading zero
         let ampm = self.timestamp.format("%p").to_string().to_lowercase();
-        let tz = iana_time_zone::get_timezone().unwrap_or_default();
-        // Extract city name from timezone (e.g. "America/Mexico_City" → "Mexico City")
-        let city = tz
-            .rsplit('/')
-            .next()
-            .unwrap_or(&tz)
-            .replace('_', " ");
-
         format!(
-            "{} at {}:{} {} {}",
+            "{} at {}:{} {}",
             self.timestamp.format("%b %d"),
             hour,
             self.timestamp.format("%M"),
             ampm,
-            city
         )
     }
 

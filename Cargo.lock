@@ -1681,7 +1681,6 @@ dependencies = [
  "comfy-table",
  "crossterm 0.28.1",
  "dirs",
- "iana-time-zone",
  "lazy_static",
  "rand",
  "reqwest",
