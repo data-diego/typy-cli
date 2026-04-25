@@ -482,7 +482,13 @@ fn draw_leaderboard(
         })
         .collect();
 
-    filtered.sort_by(|a, b| b.wpm.cmp(&a.wpm));
+    filtered.sort_by(|a, b| {
+        b.wpm.cmp(&a.wpm).then_with(|| {
+            b.accuracy
+                .partial_cmp(&a.accuracy)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    });
     filtered.truncate(5);
 
     // Draw tab bar
