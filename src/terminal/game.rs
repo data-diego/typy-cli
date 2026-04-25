@@ -187,6 +187,7 @@ pub fn run(
     let mut remaining_prev: u64 = 0;
     let timer_started = Arc::new(AtomicBool::new(false));
     let timer_started_clone = Arc::clone(&timer_started);
+    let mut restart_requested = false;
 
     // Display initial timer value
     let mut timer_x = (cols / 2).saturating_sub(1);
@@ -361,6 +362,11 @@ pub fn run(
                         game.quit = true;
                         break;
                     }
+                    if code == crossterm::event::KeyCode::Tab {
+                        timer_expired.store(true, Ordering::Relaxed);
+                        restart_requested = true;
+                        break;
+                    }
                     if !timer_started.load(Ordering::Relaxed) {
                         timer_started.store(true, Ordering::Relaxed);
                         game_start_instant = Some(Instant::now());
@@ -410,7 +416,12 @@ pub fn run(
         }
     }
 
-    let action = if !game.quit {
+    let action = if restart_requested {
+        super::PostGameAction::Replay {
+            duration,
+            lang: lang_name.clone(),
+        }
+    } else if !game.quit {
         stdout.execute(cursor::Hide)?;
 
         let is_pb = if is_repeat {
