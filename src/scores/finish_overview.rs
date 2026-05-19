@@ -105,7 +105,7 @@ pub fn show_stats(
         if let Ok(event) = read() {
             match event {
                 Event::Key(KeyEvent { code, .. }) => match code {
-                    KeyCode::Esc => return Ok(PostGameAction::Quit),
+                    KeyCode::Esc | KeyCode::Char('q') => return Ok(PostGameAction::Quit),
                     KeyCode::Left => {
                         if selected > 0 {
                             selected -= 1;
@@ -304,7 +304,7 @@ fn draw_all(
 
     // -- Hint line --
     let hint_y = rows.saturating_sub(1);
-    let hint = "< > select   ^ v leaderboard   enter/tab confirm   esc quit";
+    let hint = "< > select   ^ v leaderboard   enter/tab confirm   esc/q quit";
     let hx = cols / 2 - hint.len() as u16 / 2;
     stdout.execute(MoveTo(hx, hint_y))?;
     stdout.execute(SetForegroundColor(theme.missing))?;
