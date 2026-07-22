@@ -15,13 +15,6 @@ pub struct ThemeTable {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct GraphTable {
-    pub data: Option<String>,
-    pub title: Option<String>,
-    pub axis: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
 pub struct CursorTable {
     pub style: Option<String>,
 }
@@ -41,7 +34,6 @@ pub struct LanguageTable {
 #[derive(Serialize, Deserialize, Default)]
 pub struct ConfigToml {
     theme: Option<ThemeTable>,
-    graph: Option<GraphTable>,
     cursor: Option<CursorTable>,
     modes: Option<ModesTable>,
     language: Option<LanguageTable>,
@@ -72,10 +64,6 @@ impl ConfigToml {
 
     pub fn get_theme(&self) -> Option<ThemeTable> {
         self.theme.clone()
-    }
-
-    pub fn get_graph(&self) -> Option<GraphTable> {
-        self.graph.clone()
     }
 
     pub fn get_cursor(&self) -> Option<CursorTable> {
