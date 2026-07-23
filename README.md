@@ -138,7 +138,21 @@ punctuation_chance = "0.5"
 
 [language]
 lang = "english"
+
+# Shell commands run when typy starts and when it exits. No terminal can change
+# its font size from an escape sequence, so the command is up to you and your
+# terminal. Ghostty on macOS (needs Accessibility permission for Ghostty in
+# System Settings > Privacy & Security):
+[zoom]
+enter = "osascript -e 'tell application \"System Events\" to keystroke \"+\" using command down'"
+# delay lets physically-held modifiers (e.g. the Ctrl in Ctrl-C) release before
+# the synthetic keystroke fires — macOS merges held keys into it otherwise
+exit = "osascript -e 'delay 0.3' -e 'tell application \"System Events\" to keystroke \"0\" using command down'"
+steps = 3 # how many times to run `enter` — one per zoom step, defaults to 1
 ```
+
+Other terminals: kitty uses `kitten @ set-font-size 20` / `kitten @ set-font-size 0`,
+iTerm2 has a real AppleScript API (no Accessibility grant needed).
 
 ## Results screen
 

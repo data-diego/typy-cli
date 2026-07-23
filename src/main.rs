@@ -48,6 +48,40 @@ fn resolve_lang(input: &str) -> String {
     }
 }
 
+/// Runs the `[zoom] enter` hook now and the `exit` hook on drop, so the terminal
+/// is restored on every exit path (quit, Esc, Ctrl-C, panic).
+struct ZoomGuard(Option<String>);
+
+impl ZoomGuard {
+    fn new() -> Self {
+        let (enter, exit, steps) = match config::toml_parser::get_config().lock().unwrap().get_zoom()
+        {
+            Some(zoom) => (zoom.enter, zoom.exit, zoom.steps.unwrap_or(1)),
+            None => (None, None, 1),
+        };
+        if let Some(cmd) = enter {
+            for _ in 0..steps {
+                run_hook(&cmd);
+            }
+        }
+        ZoomGuard(exit)
+    }
+}
+
+impl Drop for ZoomGuard {
+    fn drop(&mut self) {
+        if let Some(cmd) = self.0.take() {
+            run_hook(&cmd);
+        }
+    }
+}
+
+// ponytail: best-effort and output-swallowed — a broken hook must never garble
+// the screen or stop the game. Report failures if that turns out to be confusing.
+fn run_hook(cmd: &str) {
+    let _ = std::process::Command::new("sh").arg("-c").arg(cmd).output();
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -69,6 +103,8 @@ fn main() -> Result<()> {
 
     let mut duration = cli.time;
     let mut lang: Option<String> = cli.lang.map(|l| resolve_lang(&l));
+
+    let _zoom = ZoomGuard::new();
 
     let mut repeat_words: Option<Vec<Vec<String>>> = None;
     let mut ghost_data: Option<Vec<terminal::GhostFrame>> = None;

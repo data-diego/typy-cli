@@ -31,12 +31,23 @@ pub struct LanguageTable {
     pub lang: Option<String>,
 }
 
+/// Shell commands run when typy starts and when it exits. No terminal exposes
+/// font size over an escape sequence, so the command is left up to the user.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ZoomTable {
+    pub enter: Option<String>,
+    pub exit: Option<String>,
+    /// How many times to run `enter` — one per zoom step. Defaults to 1.
+    pub steps: Option<u32>,
+}
+
 #[derive(Serialize, Deserialize, Default)]
 pub struct ConfigToml {
     theme: Option<ThemeTable>,
     cursor: Option<CursorTable>,
     modes: Option<ModesTable>,
     language: Option<LanguageTable>,
+    zoom: Option<ZoomTable>,
 }
 
 impl ConfigToml {
@@ -76,6 +87,10 @@ impl ConfigToml {
 
     pub fn get_language(&self) -> Option<LanguageTable> {
         self.language.clone()
+    }
+
+    pub fn get_zoom(&self) -> Option<ZoomTable> {
+        self.zoom.clone()
     }
 }
 

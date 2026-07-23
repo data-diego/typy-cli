@@ -15,7 +15,7 @@ use tui::layout::Rect;
 
 use crate::config::theme::ThemeColors;
 use crate::scores::Stats;
-use crate::terminal::{GhostFrame, PostGameAction};
+use crate::terminal::{close_typy, GhostFrame, PostGameAction};
 
 struct MenuItem {
     label: String,
@@ -104,8 +104,13 @@ pub fn show_stats(
     loop {
         if let Ok(event) = read() {
             match event {
-                Event::Key(KeyEvent { code, .. }) => match code {
-                    KeyCode::Esc | KeyCode::Char('q') => return Ok(PostGameAction::Quit),
+                Event::Key(KeyEvent {
+                    code, modifiers, ..
+                }) => match code {
+                    _ if close_typy(&code, &modifiers).is_some() => {
+                        return Ok(PostGameAction::Quit)
+                    }
+                    KeyCode::Char('q') => return Ok(PostGameAction::Quit),
                     KeyCode::Left => {
                         if selected > 0 {
                             selected -= 1;
