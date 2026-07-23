@@ -71,7 +71,9 @@ impl ZoomGuard {
 impl Drop for ZoomGuard {
     fn drop(&mut self) {
         if let Some(cmd) = self.0.take() {
-            run_hook(&cmd);
+            // Fire-and-forget: the hook may deliberately wait (e.g. for held
+            // modifier keys to clear) and must not delay typy's exit.
+            let _ = std::process::Command::new("sh").arg("-c").arg(&cmd).spawn();
         }
     }
 }

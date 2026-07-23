@@ -11,6 +11,10 @@ use anyhow::Result;
 
 const AXIS_COLOR: tui::style::Color = tui::style::Color::Rgb(140, 140, 140);
 
+/// Below this a chart is unreadable anyway, so we skip it rather than draw noise.
+const MIN_GRAPH_WIDTH: u16 = 16;
+const MIN_GRAPH_HEIGHT: u16 = 5;
+
 pub fn draw_graph(
     wpm_data: &[f64],
     raw_wpm_data: &[f64],
@@ -104,6 +108,13 @@ pub fn draw_graph(
     }
 
     terminal.draw(|f| {
+        // On small windows the results layout can hand us a rect that runs past the
+        // edge of the terminal; tui panics if a widget renders outside its buffer.
+        let area = area.intersection(f.size());
+        if area.width < MIN_GRAPH_WIDTH || area.height < MIN_GRAPH_HEIGHT {
+            return;
+        }
+
         let mut datasets = vec![
             // Raw WPM (grey, background)
             Dataset::default()

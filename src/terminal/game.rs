@@ -383,7 +383,16 @@ pub fn run(
                         }
                         let prev_x = game.player.position_x;
                         let prev_y = game.player.position_y;
-                        match handle_input(&mut game, &stdout, code, &mut stats, &theme, &line_xs, y)? {
+                        match handle_input(
+                            &mut game,
+                            &stdout,
+                            code,
+                            modifiers,
+                            &mut stats,
+                            &theme,
+                            &line_xs,
+                            y,
+                        )? {
                             InputAction::Continue => {
                                 // Record ghost frame if position changed
                                 if let Some(start) = game_start_instant {

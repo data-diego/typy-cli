@@ -64,6 +64,8 @@ This loop pattern is why post-game choices (replay/repeat/different time/differe
 - **Space**: a complex state machine — at start of word/line it's a no-op; mid-word it inserts an error char; at a word boundary it jumps to the next word and updates `jump_position` / `selected_word_index`.
 - **Backspace**: walks back across word/line boundaries and restores the original char in "missing" color from `original_list`. It also has special handling for removing extra chars vs. just uncovering originals.
 
+- **Delete word** (`handle_delete_word`): opt/ctrl+backspace and ctrl+w delete back to the start of the previous word. It is implemented as repeated `handle_backspace` calls (stopping at a word start) so all word-index / extra-char / line-boundary bookkeeping lives in one place. `is_delete_word` maps the several byte sequences terminals use for these chords; `handle_input` also swallows any other `Char` carrying CONTROL so chords never register as typed text.
+
 `InputAction { Continue, Break, None }` is how nested handlers signal "skip rest of frame", "end game", or "fall through".
 
 ### Modes (`src/mode/mode_selector.rs`)
@@ -90,6 +92,7 @@ TOML-driven. `theme`, `cursor`, `modes`, `language` tables map to `config_tables
 ## Conventions worth knowing
 
 - All terminal positioning goes through `crossterm::cursor::MoveTo`. After any `tui` chart draw (only `graph::draw_graph`), the cursor must be re-hidden because `tui` re-shows it.
+- Layout math on terminal size is all `u16`, so **always use `saturating_sub`** — a plain `cols / 2 - width / 2` panics in debug and wraps to ~65535 (drawing offscreen) in release whenever the window is smaller than the content. `draw_graph` additionally clamps its `Rect` to the frame and skips drawing when too small, because `tui` panics if a widget renders outside its buffer.
 - The CLI uses `clap` derive. Adding a flag = add to the `Cli` struct and thread it through `main`.
 - `anyhow::Result` and `.context("...")` are the standard error pattern throughout.
 - The repo is a fork of `Pazl27/typy-cli` with substantial divergence (backspace, ghost replay, leaderboard, repeat mode, language switching). Don't assume parity with upstream.

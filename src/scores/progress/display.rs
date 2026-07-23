@@ -68,7 +68,7 @@ fn draw_averages(stdout: &mut std::io::Stdout) -> Result<Averages> {
         ]);
 
     let (cols, _) = size()?;
-    let x = cols / 2 - (39 / 2);
+    let x = (cols / 2).saturating_sub(39 / 2);
     let y = 8;
 
     stdout
@@ -149,8 +149,8 @@ fn draw_progress(stdout: &mut std::io::Stdout, averages: Averages) -> Result<()>
     }
 
     let (cols, rows) = size()?;
-    let x = cols / 2 - (TABLE_WIDTH / 2);
-    let y = rows / 2 - (scores.len() as u16 / 2);
+    let x = (cols / 2).saturating_sub(TABLE_WIDTH / 2);
+    let y = (rows / 2).saturating_sub(scores.len() as u16 / 2);
 
     stdout
         .execute(MoveTo(x, y))

@@ -216,7 +216,7 @@ fn draw_all(
     // Personal best banner
     if data.is_personal_best {
         let banner = "*** NEW PERSONAL BEST! ***";
-        let bx = cols / 2 - banner.len() as u16 / 2;
+        let bx = (cols / 2).saturating_sub(banner.len() as u16 / 2);
         stdout.execute(MoveTo(bx, graph_y.saturating_sub(1)))?;
         stdout.execute(SetForegroundColor(Color::Yellow))?;
         print!("{}", banner);
@@ -310,7 +310,7 @@ fn draw_all(
     // -- Hint line --
     let hint_y = rows.saturating_sub(1);
     let hint = "< > select   ^ v leaderboard   enter/tab confirm   esc/q quit";
-    let hx = cols / 2 - hint.len() as u16 / 2;
+    let hx = (cols / 2).saturating_sub(hint.len() as u16 / 2);
     stdout.execute(MoveTo(hx, hint_y))?;
     stdout.execute(SetForegroundColor(theme.missing))?;
     print!("{}", hint);
@@ -549,6 +549,11 @@ fn draw_confetti(mut stdout: &std::io::Stdout, cols: u16, rows: u16) -> Result<(
     ];
     let mut rng = rand::rng();
 
+    // `random_range` needs a non-empty range, and there is nothing to draw anyway
+    if cols == 0 || rows == 0 {
+        return Ok(());
+    }
+
     // Build up confetti over multiple frames
     for frame in 0..6 {
         let count = 30 + frame * 15; // more particles each frame
@@ -567,7 +572,7 @@ fn draw_confetti(mut stdout: &std::io::Stdout, cols: u16, rows: u16) -> Result<(
 
     // Show the "NEW PERSONAL BEST!" banner on top of confetti
     let banner = "*** NEW PERSONAL BEST! ***";
-    let bx = cols / 2 - banner.len() as u16 / 2;
+    let bx = (cols / 2).saturating_sub(banner.len() as u16 / 2);
     let by = rows / 2;
     stdout.execute(MoveTo(bx, by))?;
     stdout.execute(SetForegroundColor(Color::Yellow))?;

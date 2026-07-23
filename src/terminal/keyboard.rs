@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use anyhow::{Context, Result};
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyModifiers};
 use crossterm::style::{Attribute, SetForegroundColor};
 use crossterm::ExecutableCommand;
 use crossterm::{cursor::MoveTo, style::SetAttribute};
@@ -23,15 +23,45 @@ fn lx(line_xs: &[u16], py: i32) -> u16 {
     line_xs[py as usize]
 }
 
+/// Key combos that delete the word before the cursor.
+///
+/// Terminals disagree on what opt/ctrl+backspace emits: most send `ESC DEL`
+/// (Backspace + ALT), kitty-protocol terminals send a real Backspace + CONTROL,
+/// and the rest fall back to `0x17` (Ctrl+W) or `ESC 0x08` (Alt+Ctrl+H).
+fn is_delete_word(code: KeyCode, modifiers: KeyModifiers) -> bool {
+    match code {
+        KeyCode::Backspace => {
+            modifiers.intersects(KeyModifiers::ALT | KeyModifiers::CONTROL)
+        }
+        KeyCode::Char('w') => modifiers.contains(KeyModifiers::CONTROL),
+        KeyCode::Char('h') => {
+            modifiers.contains(KeyModifiers::ALT) && modifiers.contains(KeyModifiers::CONTROL)
+        }
+        _ => false,
+    }
+}
+
 pub fn handle_input(
     game: &mut Game,
     mut stdout: &std::io::Stdout,
     code: KeyCode,
+    modifiers: KeyModifiers,
     stats: &mut Stats,
     theme: &ThemeColors,
     line_xs: &[u16],
     y: u16,
 ) -> Result<InputAction> {
+    if is_delete_word(code, modifiers) {
+        handle_delete_word(game, theme, stdout, line_xs, y)?;
+        stdout.flush().context("Failed to flush stdout")?;
+        return Ok(InputAction::None);
+    }
+
+    // Control chords are commands, not text — never type them into the test.
+    if matches!(code, KeyCode::Char(_)) && modifiers.contains(KeyModifiers::CONTROL) {
+        return Ok(InputAction::None);
+    }
+
     match code {
         KeyCode::Char(c) => {
             let x = lx(line_xs, game.player.position_y);
@@ -302,6 +332,69 @@ fn add_incorrect_char(
     Ok(InputAction::None)
 }
 
+/// True when the cursor sits at the start of a word: start of a line, or right after a space.
+fn is_word_start(list: &[Vec<String>], x: i32, y: i32) -> bool {
+    if x <= 0 {
+        return true;
+    }
+    match list.get(y as usize) {
+        Some(words) => words
+            .join(" ")
+            .chars()
+            .nth((x - 1) as usize)
+            .map_or(true, |c| c == ' '),
+        None => true,
+    }
+}
+
+fn at_word_start(game: &Game) -> bool {
+    is_word_start(&game.list, game.player.position_x, game.player.position_y)
+}
+
+/// Run one `handle_backspace`, reporting whether the cursor actually moved.
+/// A step that doesn't move means there is nothing left to delete.
+fn backspace_step(
+    game: &mut Game,
+    theme: &ThemeColors,
+    stdout: &std::io::Stdout,
+    line_xs: &[u16],
+    y: u16,
+) -> Result<bool> {
+    let before = (game.player.position_x, game.player.position_y);
+    handle_backspace(game, theme, stdout, line_xs, y)?;
+    Ok((game.player.position_x, game.player.position_y) != before)
+}
+
+/// Delete back to the start of the word before the cursor (opt/ctrl+backspace).
+///
+/// Implemented as repeated single backspaces so all the word-index, extra-char and
+/// line-boundary bookkeeping stays in `handle_backspace` alone. The cursor position
+/// strictly decreases on every successful step, so both loops terminate.
+fn handle_delete_word(
+    game: &mut Game,
+    theme: &ThemeColors,
+    stdout: &std::io::Stdout,
+    line_xs: &[u16],
+    y: u16,
+) -> Result<()> {
+    // Step over the boundary the cursor is sitting on (the space before the current
+    // word, or a line wrap) so the word *before* it is the one that gets deleted.
+    while at_word_start(game) {
+        if !backspace_step(game, theme, stdout, line_xs, y)? {
+            return Ok(()); // start of the test — nothing to delete
+        }
+    }
+
+    // Then eat the word itself.
+    while !at_word_start(game) {
+        if !backspace_step(game, theme, stdout, line_xs, y)? {
+            break;
+        }
+    }
+
+    Ok(())
+}
+
 fn handle_backspace(
     game: &mut Game,
     theme: &ThemeColors,
@@ -455,4 +548,43 @@ fn update_game_state(game: &mut Game, stats: &mut Stats, c: char) -> Result<()> 
     game.player.position_x += 1;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn line(words: &[&str]) -> Vec<Vec<String>> {
+        vec![words.iter().map(|w| w.to_string()).collect()]
+    }
+
+    #[test]
+    fn test_is_word_start() {
+        let list = line(&["the", "quick"]); // "the quick"
+        assert!(is_word_start(&list, 0, 0)); // start of line
+        assert!(!is_word_start(&list, 1, 0)); // inside "the"
+        assert!(!is_word_start(&list, 3, 0)); // end of "the"
+        assert!(is_word_start(&list, 4, 0)); // just after the space
+        assert!(!is_word_start(&list, 9, 0)); // end of "quick"
+        assert!(is_word_start(&list, 42, 0)); // past end of line
+        assert!(is_word_start(&list, 1, 7)); // line out of range
+    }
+
+    #[test]
+    fn test_is_delete_word() {
+        assert!(is_delete_word(KeyCode::Backspace, KeyModifiers::ALT));
+        assert!(is_delete_word(KeyCode::Backspace, KeyModifiers::CONTROL));
+        assert!(is_delete_word(KeyCode::Char('w'), KeyModifiers::CONTROL));
+        assert!(is_delete_word(
+            KeyCode::Char('h'),
+            KeyModifiers::CONTROL | KeyModifiers::ALT
+        ));
+
+        assert!(!is_delete_word(KeyCode::Backspace, KeyModifiers::NONE));
+        assert!(!is_delete_word(KeyCode::Backspace, KeyModifiers::SHIFT));
+        assert!(!is_delete_word(KeyCode::Char('w'), KeyModifiers::NONE));
+        assert!(!is_delete_word(KeyCode::Char('h'), KeyModifiers::NONE));
+        assert!(!is_delete_word(KeyCode::Char('h'), KeyModifiers::CONTROL));
+        assert!(!is_delete_word(KeyCode::Char('a'), KeyModifiers::CONTROL));
+    }
 }
