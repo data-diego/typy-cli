@@ -53,7 +53,7 @@ Typy displays random words for you to type as fast as possible, tracking your WP
 - **Personal best detection** — confetti animation when you set a new record
 - **Leaderboard** — top 5 scores with human-readable timestamps
 - **Quick replay** — arrow-key menu on results screen to replay, change time, or switch language without restarting
-- **Game modes** — normal, uppercase, and punctuation modes
+- **Game modes** — normal, uppercase, punctuation, and numbers modes
 - **Fully configurable** — colors, cursor style, default mode, and language via TOML config
 
 ## Installation
@@ -96,6 +96,8 @@ Options:
   -s, --stats           Display game stats
   -c, --config          Create and open config file
   -m, --mode <MODE>...  Sets the mode of the game
+  -p, --symbols         Sprinkle punctuation symbols into the words
+  -n, --numbers         Sprinkle numbers into the words
   -h, --help            Print help
   -V, --version         Print version
 ```
@@ -108,6 +110,9 @@ typy -l spanish         # Spanish, 30 seconds
 typy -l s -t 60         # Spanish, 60 seconds (shorthand)
 typy -m uppercase       # Uppercase mode
 typy -m uppercase,punctuation  # Combined modes
+typy -p                 # With punctuation symbols
+typy -n                 # With numbers
+typy -p -n              # Both, monkeytype style
 ```
 
 ### Language shorthands
@@ -132,9 +137,10 @@ accent = "#D3869B"
 style = "SteadyBar" # DefaultUserShape, BlinkingBlock, SteadyBlock, BlinkingUnderScore, SteadyUnderScore, BlinkingBar, SteadyBar
 
 [modes]
-default_mode = "normal" # "normal", "uppercase", "punctuation", or combinations like "uppercase, punctuation"
+default_mode = "normal" # "normal", "uppercase", "punctuation", "numbers", or combinations like "uppercase, punctuation"
 uppercase_chance = "0.3"
 punctuation_chance = "0.5"
+numbers_chance = "0.2"
 
 [language]
 lang = "english"

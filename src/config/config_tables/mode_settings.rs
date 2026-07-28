@@ -7,6 +7,7 @@ pub struct ModeSettings {
     pub default_modes: Vec<ModeType>,
     pub uppercase_chance: f32,
     pub punctuation_chance: f32,
+    pub numbers_chance: f32,
 }
 
 impl ModeSettings {
@@ -38,10 +39,17 @@ impl ModeSettings {
                     .map(|c| c.clamp(0.0, 1.0))
                     .unwrap_or(0.2);
 
+                let numbers_chance = settings
+                    .numbers_chance
+                    .and_then(|c| c.parse::<f32>().ok())
+                    .map(|c| c.clamp(0.0, 1.0))
+                    .unwrap_or(0.2);
+
                 ModeSettings {
                     default_modes,
                     uppercase_chance,
                     punctuation_chance,
+                    numbers_chance,
                 }
             }
             None => ModeSettings::default(),
@@ -56,6 +64,7 @@ impl Default for ModeSettings {
             default_modes: vec![ModeType::Normal],
             uppercase_chance: 0.2,
             punctuation_chance: 0.2,
+            numbers_chance: 0.2,
         }
     }
 }

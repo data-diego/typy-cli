@@ -9,6 +9,7 @@ pub enum ModeType {
     Normal,
     Uppercase,
     Punctuation,
+    Numbers,
 }
 
 impl FromStr for ModeType {
@@ -18,6 +19,7 @@ impl FromStr for ModeType {
         match input {
             "uppercase" => Ok(ModeType::Uppercase),
             "punctuation" => Ok(ModeType::Punctuation),
+            "numbers" => Ok(ModeType::Numbers),
             "normal" => Ok(ModeType::Normal),
             _ => Err(()),
         }
@@ -41,6 +43,7 @@ impl Mode {
                 "normal" => modes.push(ModeType::Normal),
                 "uppercase" => modes.push(ModeType::Uppercase),
                 "punctuation" => modes.push(ModeType::Punctuation),
+                "numbers" => modes.push(ModeType::Numbers),
                 _ => return Err(anyhow::anyhow!("Invalid mode: {}", mode_str)),
             }
         }
@@ -104,6 +107,19 @@ impl Mode {
                         }
                     }
                 }
+                // ponytail: numbers replace whole words instead of being inserted as
+                // extra ones, so the pre-fitted line length can't overflow. The digit
+                // count is capped at the word's length for the same reason.
+                ModeType::Numbers => {
+                    for sublist in list.iter_mut() {
+                        for item in sublist.iter_mut() {
+                            if rng.random_bool(self.settings.numbers_chance.into()) {
+                                let digits = item.chars().count().clamp(1, 3) as u32;
+                                *item = rng.random_range(0..10u32.pow(digits)).to_string();
+                            }
+                        }
+                    }
+                }
                 ModeType::Normal => {}
             }
         }
@@ -147,6 +163,18 @@ mod mode_tests {
         // Since the transformation is random, we can't assert exact values, but we can check the structure
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].len(), 2);
+    }
+
+    #[test]
+    fn test_transform_numbers() {
+        let mode = Mode::from_str(vec!["numbers"]).unwrap();
+        let mut list = vec![vec!["hello".to_string(), "world".to_string()]];
+        mode.transform(&mut list);
+        for word in &list[0] {
+            // A word is either untouched or replaced by digits — never longer than before.
+            assert!(word == "hello" || word == "world" || word.chars().all(|c| c.is_ascii_digit()));
+            assert!(word.chars().count() <= 5);
+        }
     }
 
     #[test]

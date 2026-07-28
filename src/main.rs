@@ -38,6 +38,12 @@ struct Cli {
 
     #[arg(short = 'l', long = "lang", help = "Language for the word list (e.g. english, spanish)")]
     lang: Option<String>,
+
+    #[arg(short = 'p', long = "symbols", help = "Sprinkle punctuation symbols into the words")]
+    symbols: bool,
+
+    #[arg(short = 'n', long = "numbers", help = "Sprinkle numbers into the words")]
+    numbers: bool,
 }
 
 fn resolve_lang(input: &str) -> String {
@@ -101,7 +107,16 @@ fn main() -> Result<()> {
     }
 
     let mut mode_strs: Vec<&str> = cli.mode.iter().map(|s| s.as_str()).collect();
-    mode_strs.is_empty().then(|| mode_strs.clear());
+    if cli.symbols {
+        mode_strs.push("punctuation");
+    }
+    if cli.numbers {
+        mode_strs.push("numbers");
+    }
+    // `-p`/`-n` are additive, so drop the `normal` that would otherwise wipe them.
+    if mode_strs.len() > 1 {
+        mode_strs.retain(|m| *m != "normal");
+    }
 
     let mut duration = cli.time;
     let mut lang: Option<String> = cli.lang.map(|l| resolve_lang(&l));
